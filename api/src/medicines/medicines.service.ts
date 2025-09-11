@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, ILike, FindManyOptions } from 'typeorm';
 import { Category } from '../categories/entities/category.entity';
@@ -6,6 +6,7 @@ import { Medicine } from './entities/medicine.entity';
 import { CreateMedicineDto } from './dto/create-medicine.dto';
 import { UpdateMedicineDto } from './dto/update-medicine.dto';
 import { MedicineQueryDto } from './dto/medicine-query.dto';
+import { Inventory } from '../inventory/entities/inventory.entity';
 
 @Injectable()
 export class MedicinesService {
@@ -14,6 +15,8 @@ export class MedicinesService {
     private readonly medicineRepository: Repository<Medicine>,
     @InjectRepository(Category)
     private readonly categoryRepository: Repository<Category>,
+    @InjectRepository(Inventory)
+    private readonly inventoryRepository: Repository<Inventory>,
   ) {}
 
   async create(createMedicineDto: CreateMedicineDto): Promise<Medicine> {
@@ -111,7 +114,23 @@ export class MedicinesService {
 
   async remove(id: number): Promise<void> {
     const medicine = await this.findOne(id);
-    await this.medicineRepository.remove(medicine);
+
+    // Pre-check: do any inventory rows reference this medicine?
+    const hasInventory = await this.inventoryRepository.exist({ where: { medicineId: id } });
+    if (hasInventory) {
+      throw new ConflictException('Cannot delete medicine: it is referenced by inventory items. Remove or reassign inventory first.');
+    }
+
+    try {
+      await this.medicineRepository.remove(medicine);
+    } catch (err: any) {
+      // Fallback for FK violations from the database (e.g., code 23503 in Postgres)
+      const code = err?.code ?? err?.driverError?.code;
+      if (code === '23503') {
+        throw new ConflictException('Cannot delete medicine due to existing inventory references.');
+      }
+      throw err;
+    }
   }
 
   async findByBarcode(barcode: string): Promise<Medicine> {

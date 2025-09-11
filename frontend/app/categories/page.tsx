@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { categoryApi, Category, CreateCategoryDto, UpdateCategoryDto } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,35 +10,44 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { CategoryForm } from "@/components/category-form";
 import { Edit, Plus, Trash2, Search } from "lucide-react";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "@/components/ui/alert-dialog";
 
 export default function CategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [total, setTotal] = useState(0);
+  
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [selected, setSelected] = useState<Category | null>(null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       setLoading(true);
       const res = await categoryApi.list({ search: search || undefined, page, limit: 10 });
       setCategories(res.categories);
-      setTotal(res.total);
-      setTotalPages(Math.max(1, Math.ceil(res.total / res.limit)));
-    } catch (e) {
+      
+    } catch {
       toast.error("Failed to load categories");
     } finally {
       setLoading(false);
     }
-  };
+  }, [search, page]);
 
   useEffect(() => {
     load();
-  }, [search, page]);
+  }, [load]);
 
   const onCreate = async (data: CreateCategoryDto) => {
     await categoryApi.create(data);
@@ -57,7 +66,6 @@ export default function CategoriesPage() {
   };
 
   const onDelete = async (id: number) => {
-    if (!confirm("Delete this category?")) return;
     await categoryApi.remove(id);
     toast.success("Category deleted");
     load();
@@ -126,9 +134,27 @@ export default function CategoriesPage() {
                           <CategoryForm initialData={c} onSubmit={onUpdate} onCancel={() => { setEditOpen(false); setSelected(null); }} />
                         </DialogContent>
                       </Dialog>
-                      <Button variant="destructive" size="sm" onClick={() => onDelete(c.id)}>
-                        <Trash2 className="w-4 h-4 mr-1" /> Delete
-                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="destructive" size="sm">
+                            <Trash2 className="w-4 h-4 mr-1" /> Delete
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete category?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This action cannot be undone. This will permanently remove &quot;{c.name}&quot;.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => onDelete(c.id)}>
+                              Confirm Delete
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </div>
                   </TableCell>
                 </TableRow>

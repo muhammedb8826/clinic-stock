@@ -102,6 +102,7 @@ export class MedicinesController {
   @ApiParam({ name: 'id', description: 'Medicine ID', example: 1 })
   @ApiResponse({ status: 200, description: 'Medicine deleted successfully' })
   @ApiResponse({ status: 404, description: 'Medicine not found' })
+  @ApiResponse({ status: 409, description: 'Cannot delete medicine due to existing inventory references' })
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.medicinesService.remove(id);
   }
