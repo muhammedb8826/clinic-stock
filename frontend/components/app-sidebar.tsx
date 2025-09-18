@@ -1,13 +1,11 @@
-"use client"
+"use client";
 
-import * as React from "react"
+import * as React from "react";
 import {
   IconCamera,
   IconDashboard,
-  IconDatabase,
   IconFileAi,
   IconFileDescription,
-  IconFileWord,
   IconFolder,
   IconHelp,
   IconInnerShadowTop,
@@ -15,12 +13,12 @@ import {
   IconReport,
   IconSearch,
   IconSettings,
-} from "@tabler/icons-react"
+} from "@tabler/icons-react";
 
-import { NavDocuments } from "@/components/nav-documents"
-import { NavMain } from "@/components/nav-main"
-import { NavSecondary } from "@/components/nav-secondary"
-import { NavUser } from "@/components/nav-user"
+import { NavDocuments } from "@/components/nav-documents";
+import { NavMain } from "@/components/nav-main";
+import { NavSecondary } from "@/components/nav-secondary";
+import { NavUser } from "@/components/nav-user";
 import {
   Sidebar,
   SidebarContent,
@@ -29,7 +27,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@/components/ui/sidebar"
+} from "@/components/ui/sidebar";
 
 const data = {
   user: {
@@ -41,8 +39,8 @@ const data = {
     {
       label: "Overview",
       items: [
-        { title: "Dashboard", url: "/", icon: IconDashboard },
-        { title: "Reports Dashboard", url: "/dashboard", icon: IconReport },
+        { title: "Dashboard", url: "/dashboard", icon: IconDashboard },
+        { title: "Reports", url: "/reports", icon: IconReport },
       ],
     },
     {
@@ -66,15 +64,19 @@ const data = {
           icon: IconListDetails,
           items: [
             { title: "List", url: "/purchase-orders", icon: IconListDetails },
-            { title: "New", url: "/purchase-orders/create", icon: IconFileDescription },
+            {
+              title: "New",
+              url: "/purchase-orders/create",
+              icon: IconFileDescription,
+            },
           ],
         },
         {
           title: "Sales",
           icon: IconReport,
           items: [
-            { title: "New", url: "/sales", icon: IconReport },
             { title: "List", url: "/sales/list", icon: IconListDetails },
+            { title: "New", url: "/sales", icon: IconReport },
           ],
         },
       ],
@@ -146,23 +148,23 @@ const data = {
     },
   ],
   documents: [
-    {
-      name: "Data Library",
-      url: "#",
-      icon: IconDatabase,
-    },
+    // {
+    //   name: "Data Library",
+    //   url: "#",
+    //   icon: IconDatabase,
+    // },
     {
       name: "Reports",
       url: "#",
       icon: IconReport,
     },
-    {
-      name: "Word Assistant",
-      url: "#",
-      icon: IconFileWord,
-    },
+    // {
+    //   name: "Word Assistant",
+    //   url: "#",
+    //   icon: IconFileWord,
+    // },
   ],
-}
+};
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
@@ -191,5 +193,5 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <NavUser user={data.user} />
       </SidebarFooter>
     </Sidebar>
-  )
+  );
 }

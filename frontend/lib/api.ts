@@ -306,7 +306,7 @@ export interface CreateSaleDto {
   items: SaleItemDto[];
 }
 export interface SaleItem { id: number; saleId: number; medicineId: number; quantity: number; unitPrice: number; totalPrice: number }
-export interface Sale { id: number; saleNumber: string; saleDate: string; customerName?: string; customerPhone?: string; totalAmount: number; discount: number; tax: number; items: SaleItem[] }
+export interface Sale { id: number; saleNumber: string; saleDate: string; customerName?: string; customerPhone?: string; totalAmount: number; discount: number; tax: number; items: SaleItem[]; calculatedProfit?: number }
 
 export const salesApi = {
   create: async (data: CreateSaleDto): Promise<Sale> => { const res = await api.post('/sales', data); return res.data },
@@ -322,6 +322,42 @@ export interface StockAdjustment extends CreateAdjustmentDto { id: number; adjus
 export const adjustmentsApi = {
   create: async (data: CreateAdjustmentDto): Promise<StockAdjustment> => { const res = await api.post('/adjustments', data); return res.data },
   list: async (): Promise<StockAdjustment[]> => { const res = await api.get('/adjustments'); return res.data },
+};
+
+// Dashboard
+export interface DashboardStats {
+  overview: {
+    totalMedicines: number;
+    lowStockCount: number;
+    expiredCount: number;
+    expiringSoonCount: number;
+    totalSales: number;
+    totalSalesAmount: number;
+  };
+  currentMonthSales: {
+    count: number;
+    amount: number;
+    profit: number;
+    sales: Sale[];
+  };
+  profit: {
+    total: number;
+    currentMonth: number;
+  };
+  lowStockMedicines: Medicine[];
+  expiredMedicines: Medicine[];
+  expiringSoonMedicines: Medicine[];
+  recentSales: Sale[];
+  topSellingMedicines: Array<{
+    medicine: Medicine;
+    totalQuantity: number;
+    totalRevenue: number;
+  }>;
+  monthlySales: Record<string, number>;
+}
+
+export const dashboardApi = {
+  getStats: async (): Promise<DashboardStats> => { const res = await api.get('/dashboard/stats'); return res.data },
 };
 
 export default api;

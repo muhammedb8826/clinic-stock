@@ -10,6 +10,7 @@ import { SuppliersModule } from './suppliers/suppliers.module';
 import { SalesModule } from './sales/sales.module';
 import { AdjustmentsModule } from './adjustments/adjustments.module';
 import { InventoryModule } from './inventory/inventory.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 import { getDatabaseConfig } from './config/database.config';
 
 @Module({
@@ -30,6 +31,7 @@ import { getDatabaseConfig } from './config/database.config';
     SalesModule,
     AdjustmentsModule,
     InventoryModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [AppService],
