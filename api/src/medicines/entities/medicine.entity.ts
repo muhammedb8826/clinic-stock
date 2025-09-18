@@ -2,18 +2,6 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateCol
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Category } from '../../categories/entities/category.entity';
 
-export enum MedicineForm {
-  TABLET = 'tablet',
-  CAPSULE = 'capsule',
-  SYRUP = 'syrup',
-  INJECTION = 'injection',
-  CREAM = 'cream',
-  DROPS = 'drops',
-  PATCH = 'patch',
-  POWDER = 'powder',
-  OINTMENT = 'ointment',
-  GEL = 'gel',
-}
 
 @Entity('medicines')
 export class Medicine {
@@ -25,24 +13,6 @@ export class Medicine {
   @Column({ unique: true })
   name: string;
 
-  @ApiPropertyOptional({ description: 'Generic name of the medicine', example: 'Acetaminophen' })
-  @Column({ nullable: true })
-  genericName: string;
-
-  @ApiProperty({ description: 'Dosage strength', example: '500mg' })
-  @Column()
-  dosage: string; // e.g., "500mg", "10ml"
-
-  @ApiProperty({ description: 'Form of the medicine', enum: MedicineForm, example: MedicineForm.TABLET })
-  @Column({
-    type: 'enum',
-    enum: MedicineForm,
-  })
-  form: MedicineForm;
-
-  @ApiProperty({ description: 'Manufacturer', example: 'ABC Pharmaceuticals' })
-  @Column()
-  manufacturer: string;
 
   @ApiProperty({ description: 'Category id' })
   @Column({ nullable: true })
@@ -53,17 +23,30 @@ export class Medicine {
   @JoinColumn({ name: 'categoryId' })
   category?: Category;
 
-  @ApiProperty({ description: 'Whether prescription is required', example: false })
-  @Column({ default: true })
-  prescriptionRequired: boolean;
-
-  @ApiPropertyOptional({ description: 'Description', example: 'Pain reliever and fever reducer' })
-  @Column({ nullable: true })
-  description: string;
 
   @ApiPropertyOptional({ description: 'Barcode', example: '1234567890123' })
   @Column({ nullable: true })
   barcode: string;
+
+  @ApiProperty({ description: 'Quantity in stock', example: 100 })
+  @Column({ type: 'int', default: 0 })
+  quantity: number;
+
+  @ApiProperty({ description: 'Selling price per unit in ETB', example: 25.50 })
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  sellingPrice: number;
+
+  @ApiProperty({ description: 'Cost price per unit in ETB', example: 15.00 })
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  costPrice: number;
+
+  @ApiProperty({ description: 'Expiry date', example: '2025-12-31' })
+  @Column({ type: 'date', nullable: true })
+  expiryDate: Date;
+
+  @ApiProperty({ description: 'Manufacturing date', example: '2024-01-15' })
+  @Column({ type: 'date', nullable: true })
+  manufacturingDate: Date;
 
   @ApiProperty({ description: 'Whether the medicine is active', example: true })
   @Column({ default: true })

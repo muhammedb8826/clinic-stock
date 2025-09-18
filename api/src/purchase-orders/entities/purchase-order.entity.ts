@@ -48,10 +48,6 @@ export class PurchaseOrder {
   @Column({ type: 'text', nullable: true })
   notes?: string;
 
-  @ApiProperty()
-  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
-  totalAmount: number;
-
   @OneToMany(() => PurchaseOrderItem, (item) => item.purchaseOrder, { cascade: true })
   items: PurchaseOrderItem[];
 

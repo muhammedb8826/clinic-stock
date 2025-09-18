@@ -1,7 +1,6 @@
-import { IsString, IsEnum, IsBoolean, IsOptional, MinLength, IsNotEmpty, IsInt } from 'class-validator';
+import { IsString, IsOptional, MinLength, IsNotEmpty, IsInt, IsNumber, IsDateString } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { MedicineForm } from '../entities/medicine.entity';
 
 export class CreateMedicineDto {
   @ApiProperty({
@@ -14,37 +13,6 @@ export class CreateMedicineDto {
   @MinLength(2)
   name: string;
 
-  @ApiPropertyOptional({
-    description: 'Generic name of the medicine',
-    example: 'Acetaminophen',
-  })
-  @IsOptional()
-  @IsString()
-  genericName?: string;
-
-  @ApiProperty({
-    description: 'Dosage strength of the medicine',
-    example: '500mg',
-  })
-  @IsString()
-  @IsNotEmpty()
-  dosage: string;
-
-  @ApiProperty({
-    description: 'Form of the medicine',
-    enum: MedicineForm,
-    example: MedicineForm.TABLET,
-  })
-  @IsEnum(MedicineForm)
-  form: MedicineForm;
-
-  @ApiProperty({
-    description: 'Manufacturer of the medicine',
-    example: 'ABC Pharmaceuticals',
-  })
-  @IsString()
-  @IsNotEmpty()
-  manufacturer: string;
 
   @ApiProperty({ description: 'Category id for relation', example: 1 })
   @IsOptional()
@@ -52,22 +20,6 @@ export class CreateMedicineDto {
   @IsInt()
   categoryId?: number;
 
-  @ApiPropertyOptional({
-    description: 'Whether prescription is required',
-    example: false,
-    default: true,
-  })
-  @IsOptional()
-  @IsBoolean()
-  prescriptionRequired?: boolean;
-
-  @ApiPropertyOptional({
-    description: 'Description of the medicine',
-    example: 'Pain reliever and fever reducer',
-  })
-  @IsOptional()
-  @IsString()
-  description?: string;
 
   @ApiPropertyOptional({
     description: 'Barcode of the medicine',
@@ -77,12 +29,45 @@ export class CreateMedicineDto {
   @IsString()
   barcode?: string;
 
-  @ApiPropertyOptional({
-    description: 'Whether the medicine is active',
-    example: true,
-    default: true,
+  @ApiProperty({
+    description: 'Quantity in stock',
+    example: 100,
+    default: 0,
   })
-  @IsOptional()
-  @IsBoolean()
-  isActive?: boolean;
+  @IsNumber()
+  @Type(() => Number)
+  quantity: number;
+
+  @ApiProperty({
+    description: 'Selling price per unit in ETB',
+    example: 25.50,
+    default: 0,
+  })
+  @IsNumber()
+  @Type(() => Number)
+  sellingPrice: number;
+
+  @ApiProperty({
+    description: 'Cost price per unit in ETB',
+    example: 15.00,
+    default: 0,
+  })
+  @IsNumber()
+  @Type(() => Number)
+  costPrice: number;
+
+  @ApiProperty({
+    description: 'Expiry date',
+    example: '2025-12-31',
+  })
+  @IsDateString()
+  expiryDate: string;
+
+  @ApiProperty({
+    description: 'Manufacturing date',
+    example: '2024-01-15',
+  })
+  @IsDateString()
+  manufacturingDate: string;
+
 }

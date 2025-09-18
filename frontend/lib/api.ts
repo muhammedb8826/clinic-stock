@@ -13,15 +13,14 @@ const api = axios.create({
 export interface Medicine {
   id: number;
   name: string;
-  genericName?: string;
-  dosage: string;
-  form: MedicineForm;
-  manufacturer: string;
   categoryId?: number;
   category?: Pick<Category, 'id' | 'name'>;
-  prescriptionRequired: boolean;
-  description?: string;
   barcode?: string;
+  quantity: number;
+  sellingPrice: number;
+  costPrice: number;
+  expiryDate: string;
+  manufacturingDate: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -42,15 +41,13 @@ export enum MedicineForm {
 
 export interface CreateMedicineDto {
   name: string;
-  genericName?: string;
-  dosage: string;
-  form: MedicineForm;
-  manufacturer: string;
   categoryId?: number;
-  prescriptionRequired?: boolean;
-  description?: string;
   barcode?: string;
-  isActive?: boolean;
+  quantity: number;
+  sellingPrice: number;
+  costPrice: number;
+  expiryDate: string;
+  manufacturingDate: string;
 }
 
 export type UpdateMedicineDto = Partial<CreateMedicineDto>;
@@ -170,7 +167,6 @@ export const categoryApi = {
 export interface Supplier {
   id: number;
   name: string;
-  contactPerson?: string;
   email?: string;
   phone?: string;
   address?: string;
@@ -208,7 +204,6 @@ export enum PurchaseOrderStatus {
 export interface PurchaseOrderItemDto {
   medicineId: number;
   quantity: number;
-  unitPrice: number;
 }
 
 export interface CreatePurchaseOrderDto {
@@ -225,8 +220,6 @@ export interface PurchaseOrderItem {
   purchaseOrderId: number;
   medicineId: number;
   quantity: number;
-  unitPrice: number;
-  totalPrice: number;
 }
 
 export interface PurchaseOrder {
@@ -238,7 +231,6 @@ export interface PurchaseOrder {
   expectedDeliveryDate?: string;
   receivedDate?: string;
   notes?: string;
-  totalAmount: number;
   items: PurchaseOrderItem[];
   createdAt: string;
   updatedAt: string;
@@ -247,9 +239,7 @@ export interface PurchaseOrder {
 export interface ReceiveItemDto {
   purchaseOrderItemId: number;
   quantityReceived: number;
-  batchNumber: string;
   expiryDate: string;
-  unitPrice: number;
   sellingPrice: number;
 }
 export interface ReceivePurchaseOrderDto {
@@ -286,7 +276,6 @@ export interface InventoryItem {
   medicineId: number;
   batchNumber: string;
   quantity: number;
-  unitPrice: number;
   sellingPrice: number;
   expiryDate: string;
   supplierId?: number;

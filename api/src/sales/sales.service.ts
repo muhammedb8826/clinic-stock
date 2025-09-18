@@ -4,14 +4,14 @@ import { Repository } from 'typeorm';
 import { Sale } from './entities/sale.entity.js';
 import { SaleItem } from './entities/sale-item.entity.js';
 import { CreateSaleDto } from './dto/create-sale.dto.js';
-import { Inventory, InventoryStatus } from '../inventory/entities/inventory.entity';
+import { Medicine } from '../medicines/entities/medicine.entity';
 
 @Injectable()
 export class SalesService {
   constructor(
     @InjectRepository(Sale) private readonly saleRepo: Repository<Sale>,
     @InjectRepository(SaleItem) private readonly itemRepo: Repository<SaleItem>,
-    @InjectRepository(Inventory) private readonly invRepo: Repository<Inventory>,
+    @InjectRepository(Medicine) private readonly medicineRepo: Repository<Medicine>,
   ) {}
 
   private generateSaleNumber(): string {
@@ -19,27 +19,25 @@ export class SalesService {
     return `S-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${Math.floor(Math.random() * 9000 + 1000)}`;
   }
 
-  // FEFO: consume earliest expiry batches first
-  private async decrementInventoryFefo(medicineId: number, quantity: number) {
-    let remaining = quantity;
-    const batches = await this.invRepo.find({ where: { medicineId, status: InventoryStatus.ACTIVE }, order: { expiryDate: 'ASC' } });
-    for (const b of batches) {
-      if (remaining <= 0) break;
-      const take = Math.min(remaining, b.quantity);
-      b.quantity -= take;
-      remaining -= take;
-      if (b.quantity === 0) {
-        b.status = InventoryStatus.SOLD_OUT;
-      }
-      await this.invRepo.save(b);
+  // Decrement medicine quantity directly
+  private async decrementMedicineQuantity(medicineId: number, quantity: number) {
+    const medicine = await this.medicineRepo.findOne({ where: { id: medicineId } });
+    if (!medicine) {
+      throw new BadRequestException(`Medicine with ID ${medicineId} not found`);
     }
-    if (remaining > 0) throw new BadRequestException('Insufficient stock');
+    
+    if (medicine.quantity < quantity) {
+      throw new BadRequestException(`Insufficient stock. Available: ${medicine.quantity}, Requested: ${quantity}`);
+    }
+    
+    medicine.quantity -= quantity;
+    await this.medicineRepo.save(medicine);
   }
 
   async create(dto: CreateSaleDto): Promise<Sale> {
     if (!dto.items?.length) throw new BadRequestException('No items');
     for (const it of dto.items) {
-      await this.decrementInventoryFefo(it.medicineId, it.quantity);
+      await this.decrementMedicineQuantity(it.medicineId, it.quantity);
     }
 
     const sale = this.saleRepo.create({
@@ -62,7 +60,10 @@ export class SalesService {
   }
 
   async list(): Promise<Sale[]> {
-    return this.saleRepo.find({ order: { createdAt: 'DESC' } });
+    return this.saleRepo.find({ 
+      relations: ['items'],
+      order: { createdAt: 'DESC' } 
+    });
   }
 
   async reportDaily(startIso?: string, endIso?: string) {

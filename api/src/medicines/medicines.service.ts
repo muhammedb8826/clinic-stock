@@ -43,7 +43,7 @@ export class MedicinesService {
   }
 
   async findAll(queryDto: MedicineQueryDto): Promise<{ medicines: Medicine[]; total: number; page: number; limit: number }> {
-    const { page = 1, limit = 10, search, form, category, manufacturer, prescriptionRequired, isActive } = queryDto;
+    const { page = 1, limit = 10, search, category, isActive } = queryDto;
     
     const options: FindManyOptions<Medicine> = {
       skip: (page - 1) * limit,
@@ -53,10 +53,7 @@ export class MedicinesService {
 
     // Build base AND filters first
     const baseWhere: any = {};
-    if (form) baseWhere.form = form;
     if (category) baseWhere.category = category;
-    if (manufacturer) baseWhere.manufacturer = manufacturer;
-    if (prescriptionRequired !== undefined) baseWhere.prescriptionRequired = prescriptionRequired;
     if (isActive !== undefined) baseWhere.isActive = isActive;
 
     // If search present, build OR conditions that include the base filters (AND)
@@ -64,8 +61,6 @@ export class MedicinesService {
       const like = ILike(`%${search}%`);
       options.where = [
         { ...baseWhere, name: like },
-        { ...baseWhere, genericName: like },
-        { ...baseWhere, manufacturer: like },
       ];
     } else if (Object.keys(baseWhere).length > 0) {
       options.where = baseWhere;

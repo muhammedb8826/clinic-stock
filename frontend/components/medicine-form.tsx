@@ -8,21 +8,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Textarea } from "@/components/ui/textarea";
-import { Medicine, MedicineForm as MedicineFormEnum, CreateMedicineDto, UpdateMedicineDto, categoryApi } from "@/lib/api";
+import { Medicine, CreateMedicineDto, UpdateMedicineDto, categoryApi } from "@/lib/api";
 
 const medicineSchema = z.object({
-  name: z.string().min(2, "Name must be at least 2 characters"),
-  genericName: z.string().optional(),
-  dosage: z.string().min(1, "Dosage is required"),
-  form: z.nativeEnum(MedicineFormEnum),
-  manufacturer: z.string().min(1, "Manufacturer is required"),
-  categoryId: z.number().int().optional(),
-  prescriptionRequired: z.boolean().default(true),
-  description: z.string().optional(),
-  barcode: z.string().optional(),
-  isActive: z.boolean().default(true),
+  productName: z.string().min(2, "Product name must be at least 2 characters"),
+  categoryId: z.number().int({ message: "Category is required" }),
+  quantity: z.coerce.number().int().min(0, "Quantity cannot be negative"),
+  sellingPrice: z.coerce.number().min(0, "Selling price cannot be negative"),
+  costPrice: z.coerce.number().min(0, "Cost price cannot be negative"),
+  expiryDate: z.string().min(1, "Expiry date is required"),
+  manufacturingDate: z.string().min(1, "Manufacturing date is required"),
+  barcodeNumber: z.string().optional(),
 });
 
 type MedicineFormData = z.input<typeof medicineSchema>;
@@ -35,7 +31,6 @@ interface MedicineFormProps {
 
 export function MedicineForm({ initialData, onSubmit, onCancel }: MedicineFormProps) {
   const [categories, setCategories] = useState<Array<{ id: number; name: string }>>([]);
-  const [manufacturers, setManufacturers] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   const {
@@ -44,36 +39,26 @@ export function MedicineForm({ initialData, onSubmit, onCancel }: MedicineFormPr
     formState: { errors },
     setValue,
     watch,
-    reset,
   } = useForm<MedicineFormData>({
     resolver: zodResolver(medicineSchema),
     defaultValues: {
-      name: initialData?.name || "",
-      genericName: initialData?.genericName || "",
-      dosage: initialData?.dosage || "",
-      form: initialData?.form || MedicineFormEnum.TABLET,
-      manufacturer: initialData?.manufacturer || "",
-      categoryId: (initialData?.categoryId as number | undefined) ?? undefined,
-      prescriptionRequired: initialData?.prescriptionRequired ?? true,
-      description: initialData?.description || "",
-      barcode: initialData?.barcode || "",
-      isActive: initialData?.isActive ?? true,
+      productName: initialData?.name || "",
+      categoryId: initialData?.categoryId || undefined,
+      quantity: initialData?.quantity || 0,
+      sellingPrice: initialData?.sellingPrice || 0,
+      costPrice: initialData?.costPrice || 0,
+      expiryDate: initialData?.expiryDate ? initialData.expiryDate.slice(0, 10) : "",
+      manufacturingDate: initialData?.manufacturingDate ? initialData.manufacturingDate.slice(0, 10) : "",
+      barcodeNumber: initialData?.barcode || "",
     },
   });
-
-  const prescriptionRequired = watch("prescriptionRequired");
-  const isActive = watch("isActive");
 
   useEffect(() => {
     // Load categories and manufacturers for suggestions
     const loadData = async () => {
       try {
-        const [categoriesData, manufacturersData] = await Promise.all([
-          categoryApi.list({ page: 1, limit: 1000, isActive: true }).then(r => r.categories),
-          fetch("http://localhost:4000/medicines/manufacturers").then(res => res.json()),
-        ]);
+        const categoriesData = await categoryApi.list({ page: 1, limit: 1000, isActive: true }).then(r => r.categories);
         setCategories(categoriesData.map(c => ({ id: c.id, name: c.name })));
-        setManufacturers(manufacturersData);
       } catch (error) {
         console.error("Error loading data:", error);
       }
@@ -84,103 +69,32 @@ export function MedicineForm({ initialData, onSubmit, onCancel }: MedicineFormPr
   const onFormSubmit = async (data: MedicineFormData) => {
     setIsLoading(true);
     try {
-      await onSubmit(data);
+      // Map new fields to DTO shape
+      const dto: CreateMedicineDto = {
+        name: data.productName,
+        categoryId: data.categoryId,
+        barcode: data.barcodeNumber,
+        quantity: Number(data.quantity),
+        sellingPrice: Number(data.sellingPrice),
+        costPrice: Number(data.costPrice),
+        expiryDate: data.expiryDate,
+        manufacturingDate: data.manufacturingDate,
+      };
+      await onSubmit(dto);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const formOptions = [
-    { value: MedicineFormEnum.TABLET, label: "Tablet" },
-    { value: MedicineFormEnum.CAPSULE, label: "Capsule" },
-    { value: MedicineFormEnum.SYRUP, label: "Syrup" },
-    { value: MedicineFormEnum.INJECTION, label: "Injection" },
-    { value: MedicineFormEnum.CREAM, label: "Cream" },
-    { value: MedicineFormEnum.DROPS, label: "Drops" },
-    { value: MedicineFormEnum.PATCH, label: "Patch" },
-    { value: MedicineFormEnum.POWDER, label: "Powder" },
-    { value: MedicineFormEnum.OINTMENT, label: "Ointment" },
-    { value: MedicineFormEnum.GEL, label: "Gel" },
-  ];
-
   return (
     <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Name */}
+        {/* Product Name */}
         <div className="space-y-2">
-          <Label htmlFor="name">Medicine Name *</Label>
-          <Input
-            id="name"
-            {...register("name")}
-            placeholder="e.g., Paracetamol 500mg"
-          />
-          {errors.name && (
-            <p className="text-sm text-red-600">{errors.name.message}</p>
-          )}
-        </div>
-
-        {/* Generic Name */}
-        <div className="space-y-2">
-          <Label htmlFor="genericName">Generic Name</Label>
-          <Input
-            id="genericName"
-            {...register("genericName")}
-            placeholder="e.g., Acetaminophen"
-          />
-        </div>
-
-        {/* Dosage */}
-        <div className="space-y-2">
-          <Label htmlFor="dosage">Dosage *</Label>
-          <Input
-            id="dosage"
-            {...register("dosage")}
-            placeholder="e.g., 500mg, 10ml"
-          />
-          {errors.dosage && (
-            <p className="text-sm text-red-600">{errors.dosage.message}</p>
-          )}
-        </div>
-
-        {/* Form */}
-        <div className="space-y-2">
-          <Label htmlFor="form">Form *</Label>
-          <Select
-            value={watch("form")}
-            onValueChange={(value) => setValue("form", value as MedicineFormEnum)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select form" />
-            </SelectTrigger>
-            <SelectContent>
-              {formOptions.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {errors.form && (
-            <p className="text-sm text-red-600">{errors.form.message}</p>
-          )}
-        </div>
-
-        {/* Manufacturer */}
-        <div className="space-y-2">
-          <Label htmlFor="manufacturer">Manufacturer *</Label>
-          <Input
-            id="manufacturer"
-            {...register("manufacturer")}
-            placeholder="e.g., ABC Pharmaceuticals"
-            list="manufacturers"
-          />
-          <datalist id="manufacturers">
-            {manufacturers.map((manufacturer) => (
-              <option key={manufacturer} value={manufacturer} />
-            ))}
-          </datalist>
-          {errors.manufacturer && (
-            <p className="text-sm text-red-600">{errors.manufacturer.message}</p>
+          <Label htmlFor="productName">Product Name *</Label>
+          <Input id="productName" {...register("productName")} placeholder="e.g., Paracetamol 500mg" />
+          {errors.productName && (
+            <p className="text-sm text-red-600">{errors.productName.message}</p>
           )}
         </div>
 
@@ -202,48 +116,63 @@ export function MedicineForm({ initialData, onSubmit, onCancel }: MedicineFormPr
               ))}
             </SelectContent>
           </Select>
+          {errors.categoryId && (
+            <p className="text-sm text-red-600">Category is required</p>
+          )}
         </div>
 
-        {/* Barcode */}
+        {/* Quantity */}
         <div className="space-y-2">
-          <Label htmlFor="barcode">Barcode</Label>
-          <Input
-            id="barcode"
-            {...register("barcode")}
-            placeholder="e.g., 1234567890123"
-          />
-        </div>
-      </div>
-
-      {/* Description */}
-      <div className="space-y-2">
-        <Label htmlFor="description">Description</Label>
-        <Textarea
-          id="description"
-          {...register("description")}
-          placeholder="Medicine description..."
-          rows={3}
-        />
-      </div>
-
-      {/* Checkboxes */}
-      <div className="flex gap-6">
-        <div className="flex items-center space-x-2">
-          <Checkbox
-            id="prescriptionRequired"
-            checked={prescriptionRequired}
-            onCheckedChange={(checked) => setValue("prescriptionRequired", !!checked)}
-          />
-          <Label htmlFor="prescriptionRequired">Prescription Required</Label>
+          <Label htmlFor="quantity">Quantity *</Label>
+          <Input id="quantity" type="number" step="1" min="0" {...register("quantity", { valueAsNumber: true })} />
+          {errors.quantity && (
+            <p className="text-sm text-red-600">{errors.quantity.message}</p>
+          )}
         </div>
 
-        <div className="flex items-center space-x-2">
-          <Checkbox
-            id="isActive"
-            checked={isActive}
-            onCheckedChange={(checked) => setValue("isActive", !!checked)}
-          />
-          <Label htmlFor="isActive">Active</Label>
+        {/* Selling Price */}
+        <div className="space-y-2">
+          <Label htmlFor="sellingPrice">Selling Price *</Label>
+          <Input id="sellingPrice" type="number" step="0.01" min="0" {...register("sellingPrice", { valueAsNumber: true })} />
+          {errors.sellingPrice && (
+            <p className="text-sm text-red-600">{errors.sellingPrice.message}</p>
+          )}
+        </div>
+
+        {/* Cost Price */}
+        <div className="space-y-2">
+          <Label htmlFor="costPrice">Cost Price *</Label>
+          <Input id="costPrice" type="number" step="0.01" min="0" {...register("costPrice", { valueAsNumber: true })} />
+          {errors.costPrice && (
+            <p className="text-sm text-red-600">{errors.costPrice.message}</p>
+          )}
+        </div>
+
+        {/* Expiry Date */}
+        <div className="space-y-2">
+          <Label htmlFor="expiryDate">Expiry Date *</Label>
+          <Input id="expiryDate" type="date" {...register("expiryDate")} />
+          {errors.expiryDate && (
+            <p className="text-sm text-red-600">{errors.expiryDate.message}</p>
+          )}
+        </div>
+
+        {/* Manufacturing Date */}
+        <div className="space-y-2">
+          <Label htmlFor="manufacturingDate">Manufacturing Date *</Label>
+          <Input id="manufacturingDate" type="date" {...register("manufacturingDate")} />
+          {errors.manufacturingDate && (
+            <p className="text-sm text-red-600">{errors.manufacturingDate.message}</p>
+          )}
+        </div>
+
+        {/* Barcode Number */}
+        <div className="space-y-2">
+          <Label htmlFor="barcodeNumber">Barcode Number</Label>
+          <Input id="barcodeNumber" {...register("barcodeNumber")} placeholder="e.g., 1234567890123" />
+          {errors.barcodeNumber && (
+            <p className="text-sm text-red-600">{errors.barcodeNumber.message}</p>
+          )}
         </div>
       </div>
 

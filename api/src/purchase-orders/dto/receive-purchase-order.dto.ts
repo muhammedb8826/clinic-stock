@@ -13,17 +13,8 @@ export class ReceiveItemDto {
   quantityReceived: number;
 
   @ApiProperty()
-  @IsNotEmpty()
-  batchNumber: string;
-
-  @ApiProperty()
   @IsDateString()
   expiryDate: string;
-
-  @ApiProperty()
-  @IsNumber()
-  @Min(0)
-  unitPrice: number;
 
   @ApiProperty()
   @IsNumber()

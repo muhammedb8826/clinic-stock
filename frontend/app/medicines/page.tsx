@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Plus, Search, Filter, Edit, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { medicineApi, Medicine, MedicineForm, CreateMedicineDto, UpdateMedicineDto } from "@/lib/api";
+import { medicineApi, Medicine, CreateMedicineDto, UpdateMedicineDto } from "@/lib/api";
 import { MedicineForm as MedicineFormComponent } from "@/components/medicine-form";
 import { toast } from "sonner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -19,11 +19,8 @@ export default function MedicinesPage() {
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedForm, setSelectedForm] = useState<string>("all");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
-  const [selectedManufacturer, setSelectedManufacturer] = useState<string>("all");
   const [categories, setCategories] = useState<Array<{ id: number; name: string }>>([]);
-  const [manufacturers, setManufacturers] = useState<string[]>([]);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedMedicine, setSelectedMedicine] = useState<Medicine | null>(null);
@@ -31,14 +28,12 @@ export default function MedicinesPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
 
-  const loadMedicines = async () => {
+  const loadMedicines = useCallback(async () => {
     try {
       setLoading(true);
       const params = {
         search: searchTerm || undefined,
-        form: selectedForm !== "all" ? (selectedForm as MedicineForm) : undefined,
         categoryId: selectedCategory !== "all" ? Number(selectedCategory) : undefined,
-        manufacturer: selectedManufacturer !== "all" ? selectedManufacturer : undefined,
         page: currentPage,
         limit: 10,
       };
@@ -54,7 +49,7 @@ export default function MedicinesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [searchTerm, selectedCategory, currentPage]);
 
   const loadCategories = async () => {
     try {
@@ -65,22 +60,13 @@ export default function MedicinesPage() {
     }
   };
 
-  const loadManufacturers = async () => {
-    try {
-      const data = await medicineApi.getManufacturers();
-      setManufacturers(data);
-    } catch (error) {
-      console.error("Error loading manufacturers:", error);
-    }
-  };
 
   useEffect(() => {
     loadMedicines();
-  }, [currentPage, searchTerm, selectedForm, selectedCategory, selectedManufacturer]);
+  }, [loadMedicines]);
 
   useEffect(() => {
     loadCategories();
-    loadManufacturers();
   }, []);
 
   const handleCreateMedicine = async (data: CreateMedicineDto) => {
@@ -128,26 +114,47 @@ export default function MedicinesPage() {
 
   const clearFilters = () => {
     setSearchTerm("");
-    setSelectedForm("all");
     setSelectedCategory("all");
-    setSelectedManufacturer("all");
     setCurrentPage(1);
   };
 
-  const getFormBadgeColor = (form: MedicineForm) => {
-    const colors = {
-      tablet: "bg-blue-100 text-blue-800",
-      capsule: "bg-green-100 text-green-800",
-      syrup: "bg-yellow-100 text-yellow-800",
-      injection: "bg-red-100 text-red-800",
-      cream: "bg-purple-100 text-purple-800",
-      drops: "bg-pink-100 text-pink-800",
-      patch: "bg-indigo-100 text-indigo-800",
-      powder: "bg-gray-100 text-gray-800",
-      ointment: "bg-orange-100 text-orange-800",
-      gel: "bg-teal-100 text-teal-800",
-    };
-    return colors[form] || "bg-gray-100 text-gray-800";
+  const getStockStatus = (medicine: Medicine) => {
+    if (medicine.quantity === 0) {
+      return { status: "Out of Stock", color: "bg-red-100 text-red-800" };
+    } else if (medicine.quantity <= 10) {
+      return { status: "Low Stock", color: "bg-orange-100 text-orange-800" };
+    } else {
+      return { status: "High Stock", color: "bg-green-100 text-green-800" };
+    }
+  };
+
+  const getExpiryStatus = (medicine: Medicine) => {
+    const today = new Date();
+    const expiryDate = new Date(medicine.expiryDate);
+    const daysUntilExpiry = Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (daysUntilExpiry < 0) {
+      return { status: "Expired", color: "bg-red-100 text-red-800" };
+    } else if (daysUntilExpiry <= 30) {
+      return { status: "Expiring Soon", color: "bg-yellow-100 text-yellow-800" };
+    } else {
+      return { status: "Good", color: "bg-green-100 text-green-800" };
+    }
+  };
+
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat('en-ET', {
+      style: 'currency',
+      currency: 'ETB'
+    }).format(price);
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
   };
 
   return (
@@ -182,7 +189,7 @@ export default function MedicinesPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="relative">
               <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
               <Input
@@ -192,20 +199,6 @@ export default function MedicinesPage() {
                 className="pl-10"
               />
             </div>
-            
-            <Select value={selectedForm} onValueChange={setSelectedForm}>
-              <SelectTrigger>
-                <SelectValue placeholder="Form" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Forms</SelectItem>
-                {Object.values(MedicineForm).map((form) => (
-                  <SelectItem key={form} value={form}>
-                    {form.charAt(0).toUpperCase() + form.slice(1)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
 
             <Select value={selectedCategory} onValueChange={setSelectedCategory}>
               <SelectTrigger>
@@ -216,20 +209,6 @@ export default function MedicinesPage() {
                 {categories.map((c) => (
                   <SelectItem key={c.id} value={String(c.id)}>
                     {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={selectedManufacturer} onValueChange={setSelectedManufacturer}>
-              <SelectTrigger>
-                <SelectValue placeholder="Manufacturer" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Manufacturers</SelectItem>
-                {manufacturers.map((manufacturer) => (
-                  <SelectItem key={manufacturer} value={manufacturer}>
-                    {manufacturer}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -275,77 +254,75 @@ export default function MedicinesPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Generic</TableHead>
-              <TableHead>Dosage</TableHead>
-              <TableHead>Form</TableHead>
-              <TableHead>Manufacturer</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>Prescription</TableHead>
-              <TableHead>Barcode</TableHead>
+              <TableHead>Product Name</TableHead>
+              <TableHead>Stock Amount</TableHead>
+              <TableHead>Stock Status</TableHead>
+              <TableHead>Selling Price</TableHead>
+              <TableHead>Expiry Date</TableHead>
+              <TableHead>Expiry Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-8 text-gray-500">
+                <TableCell colSpan={7} className="text-center py-8 text-gray-500">
                   Loading medicines...
                 </TableCell>
               </TableRow>
             ) : medicines.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-8 text-gray-500">
+                <TableCell colSpan={7} className="text-center py-8 text-gray-500">
                   No medicines found
                 </TableCell>
               </TableRow>
             ) : (
-              medicines.map((medicine) => (
-                <TableRow key={medicine.id}>
-                  <TableCell className="font-medium">{medicine.name}</TableCell>
-                  <TableCell>{medicine.genericName ?? '-'}</TableCell>
-                  <TableCell>{medicine.dosage}</TableCell>
-                  <TableCell>
-                    <Badge className={getFormBadgeColor(medicine.form)}>{medicine.form}</Badge>
-                  </TableCell>
-                  <TableCell>{medicine.manufacturer}</TableCell>
-                  <TableCell>{medicine.category?.name ?? '-'}</TableCell>
-                  <TableCell>
-                    <Badge variant={medicine.prescriptionRequired ? "destructive" : "secondary"}>
-                      {medicine.prescriptionRequired ? "Required" : "Not Required"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="font-mono">{medicine.barcode ?? '-'}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex gap-2 justify-end">
-                      <Button variant="outline" size="sm" onClick={() => handleEditClick(medicine)}>
-                        <Edit className="w-4 h-4 mr-1" /> Edit
-                      </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="destructive" size="sm">
-                            <Trash2 className="w-4 h-4 mr-1" /> Delete
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Delete medicine?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              This action cannot be undone. This will permanently remove &quot;{medicine.name}&quot; from your inventory.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleDeleteMedicine(medicine.id)}>
-                              Confirm Delete
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
+              medicines.map((medicine) => {
+                const stockStatus = getStockStatus(medicine);
+                const expiryStatus = getExpiryStatus(medicine);
+                return (
+                  <TableRow key={medicine.id}>
+                    <TableCell className="font-medium">{medicine.name}</TableCell>
+                    <TableCell className="font-mono">{medicine.quantity}</TableCell>
+                    <TableCell>
+                      <Badge className={stockStatus.color}>{stockStatus.status}</Badge>
+                    </TableCell>
+                    <TableCell className="font-mono">{formatPrice(medicine.sellingPrice)}</TableCell>
+                    <TableCell className="font-mono">{formatDate(medicine.expiryDate)}</TableCell>
+                    <TableCell>
+                      <Badge className={expiryStatus.color}>{expiryStatus.status}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex gap-2 justify-end">
+                        <Button variant="outline" size="sm" onClick={() => handleEditClick(medicine)}>
+                          <Edit className="w-4 h-4 mr-1" /> Edit
+                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="destructive" size="sm">
+                              <Trash2 className="w-4 h-4 mr-1" /> Delete
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete medicine?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This action cannot be undone. This will permanently remove &quot;{medicine.name}&quot; from your inventory.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleDeleteMedicine(medicine.id)}>
+                                Confirm Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>

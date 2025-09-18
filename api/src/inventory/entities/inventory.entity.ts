@@ -33,11 +33,7 @@ export class Inventory {
   @Column({ type: 'int' })
   quantity: number;
 
-  @ApiProperty({ description: 'Unit purchase price', example: 0.50 })
-  @Column({ type: 'decimal', precision: 10, scale: 2 })
-  unitPrice: number;
-
-  @ApiProperty({ description: 'Selling price per unit', example: 1.00 })
+  @ApiProperty({ description: 'Selling price per unit in ETB', example: 25.50 })
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   sellingPrice: number;
 

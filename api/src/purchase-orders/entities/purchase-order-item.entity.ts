@@ -28,14 +28,6 @@ export class PurchaseOrderItem {
   @ApiProperty()
   @Column({ type: 'int' })
   quantity: number;
-
-  @ApiProperty()
-  @Column({ type: 'decimal', precision: 10, scale: 2 })
-  unitPrice: number;
-
-  @ApiProperty()
-  @Column({ type: 'decimal', precision: 12, scale: 2 })
-  totalPrice: number;
 }
 
 

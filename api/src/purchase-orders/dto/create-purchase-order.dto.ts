@@ -12,11 +12,6 @@ export class CreatePurchaseOrderItemDto {
   @IsInt()
   @Min(1)
   quantity: number;
-
-  @ApiProperty()
-  @IsNumber()
-  @Min(0)
-  unitPrice: number;
 }
 
 export class CreatePurchaseOrderDto {

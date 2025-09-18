@@ -48,21 +48,35 @@ const data = {
     {
       label: "Catalogue",
       items: [
-        { title: "Medicines (List)", url: "/medicines", icon: IconListDetails },
-        { title: "Medicines (Create)", url: "/medicines/create", icon: IconFileDescription },
-        { title: "Categories (List)", url: "/categories", icon: IconFolder },
-        { title: "Categories (Create)", url: "/categories/create", icon: IconFileDescription },
+        {
+          title: "Medicines",
+          icon: IconListDetails,
+          items: [
+            { title: "List", url: "/medicines", icon: IconListDetails },
+            { title: "Categories", url: "/categories", icon: IconFolder },
+          ],
+        },
       ],
     },
     {
       label: "Operations",
       items: [
-        { title: "Purchase Orders", url: "/purchase-orders", icon: IconListDetails },
-        { title: "New Purchase Order", url: "/purchase-orders/create", icon: IconFileDescription },
-        { title: "Inventory", url: "/inventory", icon: IconDatabase },
-        { title: "Sales (Dispense)", url: "/sales", icon: IconReport },
-        { title: "New Sale", url: "/sales/create", icon: IconFileDescription },
-        { title: "Adjustments", url: "/adjustments", icon: IconInnerShadowTop },
+        {
+          title: "Purchase",
+          icon: IconListDetails,
+          items: [
+            { title: "List", url: "/purchase-orders", icon: IconListDetails },
+            { title: "New", url: "/purchase-orders/create", icon: IconFileDescription },
+          ],
+        },
+        {
+          title: "Sales",
+          icon: IconReport,
+          items: [
+            { title: "New", url: "/sales", icon: IconReport },
+            { title: "List", url: "/sales/list", icon: IconListDetails },
+          ],
+        },
       ],
     },
   ],
