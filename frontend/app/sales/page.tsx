@@ -1,12 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { medicineApi, Medicine, salesApi, CreateSaleDto } from "@/lib/api";
+import { medicineApi, Medicine, salesApi, CreateSaleDto, customerApi, Customer } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { Plus } from "lucide-react";
 
 interface CartItem {
   medicine: Medicine;
@@ -15,28 +20,87 @@ interface CartItem {
 
 export default function SalesPage() {
   const [medicines, setMedicines] = useState<Medicine[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [customerName, setCustomerName] = useState("");
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [customerSearchTerm, setCustomerSearchTerm] = useState("");
+  const [newCustomerModalOpen, setNewCustomerModalOpen] = useState(false);
+  const [newCustomerForm, setNewCustomerForm] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    address: ""
+  });
+  const [paymentMethod, setPaymentMethod] = useState("cash");
 
   useEffect(() => {
-    const loadMedicines = async () => {
+    const loadData = async () => {
       try {
-        const response = await medicineApi.getAll({ page: 1, limit: 1000, isActive: true });
-        setMedicines(response.medicines); // Show all medicines
+        const [medicinesResponse, customersResponse] = await Promise.all([
+          medicineApi.getAll({ page: 1, limit: 1000, isActive: true }),
+          customerApi.list()
+        ]);
+        setMedicines(medicinesResponse.medicines);
+        setCustomers(customersResponse);
       } catch {
-        toast.error("Failed to load medicines");
+        toast.error("Failed to load data");
       } finally {
         setLoading(false);
       }
     };
-    loadMedicines();
+    loadData();
   }, []);
 
   const filteredMedicines = medicines.filter(medicine =>
     medicine.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const filteredCustomers = customers.filter(customer =>
+    customer.name.toLowerCase().includes(customerSearchTerm.toLowerCase()) ||
+    customer.phone?.includes(customerSearchTerm) ||
+    customer.email?.toLowerCase().includes(customerSearchTerm.toLowerCase())
+  );
+
+  const handleCustomerSelect = (customerId: string) => {
+    if (customerId === "walk-in") {
+      setSelectedCustomer(null);
+      setCustomerName("");
+      setCustomerSearchTerm("");
+    } else {
+      const customer = customers.find(c => c.id.toString() === customerId);
+      setSelectedCustomer(customer || null);
+      setCustomerName(customer ? customer.name : "");
+      setCustomerSearchTerm("");
+    }
+  };
+
+  const handleCustomerNameChange = (value: string) => {
+    setCustomerName(value);
+    // Clear selected customer if typing manually
+    if (selectedCustomer && selectedCustomer.name !== value) {
+      setSelectedCustomer(null);
+    }
+  };
+
+  const handleCreateNewCustomer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const newCustomer = await customerApi.create(newCustomerForm);
+      setCustomers([...customers, newCustomer]);
+      setSelectedCustomer(newCustomer);
+      setCustomerName(newCustomer.name);
+      setNewCustomerModalOpen(false);
+      setNewCustomerForm({ name: "", email: "", phone: "", address: "" });
+      setCustomerSearchTerm("");
+      toast.success("New customer created and selected!");
+    } catch (error) {
+      console.error("Failed to create customer:", error);
+      toast.error("Failed to create customer");
+    }
+  };
 
   const addToCart = (medicine: Medicine) => {
     const existingItem = cart.find(item => item.medicine.id === medicine.id);
@@ -115,11 +179,19 @@ export default function SalesPage() {
       const sale = await salesApi.create(saleDto);
       
       // Show success message
-      toast.success(`Sale #${sale.saleNumber} processed for ${customerName}. Total: ${formatPrice(getTotalAmount())}`);
+      const paymentMethodDisplay = {
+        cash: "Cash",
+        mobile_banking: "Mobile Banking",
+        telebirr: "Telebirr"
+      };
+      toast.success(`Sale #${sale.saleNumber} processed for ${customerName}. Total: ${formatPrice(getTotalAmount())} (${paymentMethodDisplay[paymentMethod as keyof typeof paymentMethodDisplay]})`);
       
       // Clear cart and customer name
       setCart([]);
       setCustomerName("");
+      setSelectedCustomer(null);
+      setCustomerSearchTerm("");
+      setPaymentMethod("cash");
       
       // Refresh medicines list to update stock quantities
       const response = await medicineApi.getAll({ page: 1, limit: 1000, isActive: true });
@@ -158,7 +230,7 @@ export default function SalesPage() {
             />
           </div>
 
-          {loading ? (
+            {loading ? (
             <div className="text-center py-8 text-gray-500">Loading medicines...</div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -194,12 +266,129 @@ export default function SalesPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Customer Name</label>
+                <label className="text-sm font-medium">Customer *</label>
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <Select
+                      value={selectedCustomer ? selectedCustomer.id.toString() : "walk-in"}
+                      onValueChange={handleCustomerSelect}
+                    >
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder="Select or search customer" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-60">
+                        <div className="p-2 border-b">
+                          <Input
+                            placeholder="Search customers..."
+                            value={customerSearchTerm}
+                            onChange={(e) => {
+                              setCustomerSearchTerm(e.target.value);
+                              // Clear selection when searching
+                              if (e.target.value && selectedCustomer) {
+                                setSelectedCustomer(null);
+                                setCustomerName("");
+                              }
+                            }}
+                            className="h-8"
+                          />
+                        </div>
+                        <div className="max-h-48 overflow-auto">
+                          <SelectItem value="walk-in">Walk-in Customer</SelectItem>
+                          {customerSearchTerm && (
+                            <div className="px-2 py-1 text-xs text-gray-500 border-b">
+                              Found {filteredCustomers.length} customer{filteredCustomers.length !== 1 ? 's' : ''}
+                            </div>
+                          )}
+                          {filteredCustomers.map((customer) => (
+                            <SelectItem key={customer.id} value={customer.id.toString()}>
+                              {customer.name} {customer.phone && `(${customer.phone})`}
+                            </SelectItem>
+                          ))}
+                          {filteredCustomers.length === 0 && customerSearchTerm && (
+                            <div className="px-2 py-1 text-xs text-gray-500">
+                              No customers found for &quot;{customerSearchTerm}&quot;
+                            </div>
+                          )}
+                        </div>
+                      </SelectContent>
+                    </Select>
+                    <Dialog open={newCustomerModalOpen} onOpenChange={setNewCustomerModalOpen}>
+                      <DialogTrigger asChild>
+                        <Button variant="outline" size="sm">
+                          <Plus className="h-4 w-4 mr-1" />
+                          New
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="sm:max-w-[425px]">
+                        <DialogHeader>
+                          <DialogTitle>Add New Customer</DialogTitle>
+                        </DialogHeader>
+                        <form onSubmit={handleCreateNewCustomer} className="space-y-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="new-customer-name">Name *</Label>
+                            <Input
+                              id="new-customer-name"
+                              value={newCustomerForm.name}
+                              onChange={(e) => setNewCustomerForm({ ...newCustomerForm, name: e.target.value })}
+                              required
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="new-customer-email">Email</Label>
+                            <Input
+                              id="new-customer-email"
+                              value={newCustomerForm.email}
+                              onChange={(e) => setNewCustomerForm({ ...newCustomerForm, email: e.target.value })}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="new-customer-phone">Phone</Label>
+                            <Input
+                              id="new-customer-phone"
+                              value={newCustomerForm.phone}
+                              onChange={(e) => setNewCustomerForm({ ...newCustomerForm, phone: e.target.value })}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="new-customer-address">Address</Label>
+                            <Textarea
+                              id="new-customer-address"
+                              value={newCustomerForm.address}
+                              onChange={(e) => setNewCustomerForm({ ...newCustomerForm, address: e.target.value })}
+                            />
+                          </div>
+                          <div className="flex justify-end space-x-2">
+                            <Button type="button" variant="outline" onClick={() => setNewCustomerModalOpen(false)}>
+                              Cancel
+                            </Button>
+                            <Button type="submit">
+                              Create Customer
+                            </Button>
+                          </div>
+                        </form>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                </div>
                 <Input
-                  placeholder="Enter customer name"
+                  placeholder="Or type customer name manually"
                   value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
+                  onChange={(e) => handleCustomerNameChange(e.target.value)}
                 />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Payment Method</label>
+                <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select payment method" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cash">Cash</SelectItem>
+                    <SelectItem value="mobile_banking">Mobile Banking</SelectItem>
+                    <SelectItem value="telebirr">Telebirr</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">

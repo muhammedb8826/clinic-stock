@@ -191,6 +191,48 @@ export const supplierApi = {
     const res = await api.post('/suppliers', data);
     return res.data;
   },
+  update: async (id: number, data: UpdateSupplierDto): Promise<Supplier> => {
+    const res = await api.put(`/suppliers/${id}`, data);
+    return res.data;
+  },
+  delete: async (id: number): Promise<void> => {
+    await api.delete(`/suppliers/${id}`);
+  },
+};
+
+// Customers
+export interface Customer {
+  id: number;
+  name: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateCustomerDto extends Partial<Omit<Customer, 'id'|'createdAt'|'updatedAt'>> {
+  name: string;
+}
+
+export type UpdateCustomerDto = Partial<CreateCustomerDto>;
+
+export const customerApi = {
+  list: async (): Promise<Customer[]> => {
+    const res = await api.get('/customers');
+    return res.data;
+  },
+  create: async (data: CreateCustomerDto): Promise<Customer> => {
+    const res = await api.post('/customers', data);
+    return res.data;
+  },
+  update: async (id: number, data: UpdateCustomerDto): Promise<Customer> => {
+    const res = await api.put(`/customers/${id}`, data);
+    return res.data;
+  },
+  delete: async (id: number): Promise<void> => {
+    await api.delete(`/customers/${id}`);
+  },
 };
 
 // Purchase Orders

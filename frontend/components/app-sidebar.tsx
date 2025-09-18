@@ -13,6 +13,7 @@ import {
   IconReport,
   IconSearch,
   IconSettings,
+  IconUsers,
 } from "@tabler/icons-react";
 
 import { NavDocuments } from "@/components/nav-documents";
@@ -79,6 +80,8 @@ const data = {
             { title: "New", url: "/sales", icon: IconReport },
           ],
         },
+        { title: "Customers", url: "/customers", icon: IconUsers },
+        { title: "Suppliers", url: "/suppliers", icon: IconUsers },
       ],
     },
   ],
