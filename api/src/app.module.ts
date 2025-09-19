@@ -12,6 +12,8 @@ import { AdjustmentsModule } from './adjustments/adjustments.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { CustomersModule } from './customers/customers.module';
+import { UsersModule } from './users/users.module';
+import { AuthModule } from './auth/auth.module';
 import { getDatabaseConfig } from './config/database.config';
 
 @Module({
@@ -34,6 +36,8 @@ import { getDatabaseConfig } from './config/database.config';
     InventoryModule,
     DashboardModule,
     CustomersModule,
+    UsersModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],

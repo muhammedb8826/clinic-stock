@@ -235,6 +235,47 @@ export const customerApi = {
   },
 };
 
+// Users
+export interface User {
+  id: number;
+  name: string;
+  email: string;
+  password?: string;
+  role: 'admin' | 'manager' | 'cashier';
+  phone?: string;
+  address?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateUserDto extends Partial<Omit<User, 'id'|'createdAt'|'updatedAt'>> {
+  name: string;
+  email: string;
+  password?: string;
+  role: 'admin' | 'manager' | 'cashier';
+}
+
+export type UpdateUserDto = Partial<CreateUserDto>;
+
+export const userApi = {
+  list: async (): Promise<User[]> => {
+    const res = await api.get('/users');
+    return res.data;
+  },
+  create: async (data: CreateUserDto): Promise<User> => {
+    const res = await api.post('/users', data);
+    return res.data;
+  },
+  update: async (id: number, data: UpdateUserDto): Promise<User> => {
+    const res = await api.put(`/users/${id}`, data);
+    return res.data;
+  },
+  delete: async (id: number): Promise<void> => {
+    await api.delete(`/users/${id}`);
+  },
+};
+
 // Purchase Orders
 export enum PurchaseOrderStatus {
   DRAFT = 'draft',
@@ -368,34 +409,33 @@ export const adjustmentsApi = {
 
 // Dashboard
 export interface DashboardStats {
-  overview: {
-    totalMedicines: number;
-    lowStockCount: number;
-    expiredCount: number;
-    expiringSoonCount: number;
-    totalSales: number;
-    totalSalesAmount: number;
-  };
+  totalMedicines: number;
+  lowStockCount: number;
+  expiredCount: number;
+  expiringSoonCount: number;
+  totalSales: number;
+  totalSalesAmount: number;
   currentMonthSales: {
     count: number;
     amount: number;
-    profit: number;
     sales: Sale[];
   };
-  profit: {
-    total: number;
-    currentMonth: number;
-  };
+  currentMonthProfit: number;
+  totalProfit: number;
   lowStockMedicines: Medicine[];
   expiredMedicines: Medicine[];
   expiringSoonMedicines: Medicine[];
   recentSales: Sale[];
   topSellingMedicines: Array<{
-    medicine: Medicine;
-    totalQuantity: number;
+    id: number;
+    name: string;
+    quantitySold: number;
     totalRevenue: number;
   }>;
-  monthlySales: Record<string, number>;
+  monthlySales: Array<{
+    month: string;
+    sales: number;
+  }>;
 }
 
 export const dashboardApi = {
