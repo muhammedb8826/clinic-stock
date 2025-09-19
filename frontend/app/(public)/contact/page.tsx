@@ -56,7 +56,7 @@ export default function ContactPage() {
             Contact Us
           </h1>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            Get in touch with our team. We're here to help you with any questions about our 
+            Get in touch with our team. We&apos;re here to help you with any questions about our 
             pharmacy management solutions or to discuss how we can support your healthcare facility.
           </p>
         </div>
@@ -76,8 +76,7 @@ export default function ContactPage() {
                 </CardHeader>
                 <CardContent>
                   <CardDescription className="text-lg">
-                    <div>+1 (555) 123-4567</div>
-                    <div>+1 (555) 765-4321</div>
+                    <div>+251905078826</div>
                   </CardDescription>
                 </CardContent>
               </Card>
@@ -110,10 +109,7 @@ export default function ContactPage() {
                 </CardHeader>
                 <CardContent>
                   <CardDescription className="text-lg">
-                    123 Healthcare Plaza<br />
-                    Suite 500<br />
-                    Medical City, MC 12345<br />
-                    United States
+                    Addis Ababa, Ethiopia
                   </CardDescription>
                 </CardContent>
               </Card>
@@ -147,7 +143,7 @@ export default function ContactPage() {
               <CardHeader>
                 <CardTitle className="text-2xl">Send us a Message</CardTitle>
                 <CardDescription>
-                  Fill out the form below and we'll get back to you as soon as possible.
+                  Fill out the form below and we&apos;ll get back to you as soon as possible.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -185,7 +181,7 @@ export default function ContactPage() {
                         type="tel"
                         value={formData.phone}
                         onChange={(e) => handleInputChange("phone", e.target.value)}
-                        placeholder="+1 (555) 123-4567"
+                        placeholder="+251905078826"
                       />
                     </div>
                     <div className="space-y-2">
@@ -195,7 +191,7 @@ export default function ContactPage() {
                         type="text"
                         value={formData.subject}
                         onChange={(e) => handleInputChange("subject", e.target.value)}
-                        placeholder="What's this about?"
+                        placeholder="What&apos;s this about?"
                       />
                     </div>
                   </div>
