@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/sidebar"
 import * as React from "react"
 import { IconChevronDown, IconChevronRight } from "@tabler/icons-react"
+import { usePathname } from "next/navigation"
 
 export function NavMain({
   sections,
@@ -26,11 +27,28 @@ export function NavMain({
     )[]
   }[]
 }) {
-  const [openMap, setOpenMap] = React.useState<Record<string, boolean>>({
-    "Medicines": true, // Keep Medicines open by default
-    "Purchase": true, // Keep Purchase open by default
-    "Sales": true, // Keep Sales open by default
-  })
+  const pathname = usePathname()
+  const [openMap, setOpenMap] = React.useState<Record<string, boolean>>({})
+
+  // Initialize openMap with active dropdowns
+  React.useEffect(() => {
+    const initialOpenMap: Record<string, boolean> = {}
+    
+    sections.forEach(section => {
+      section.items.forEach(item => {
+        if ('items' in item && !('url' in item)) {
+          const group = item as { title: string; icon?: Icon; items: { title: string; url: string; icon?: Icon }[] }
+          // Check if any sub-item matches current path
+          const hasActiveChild = group.items.some(subItem => pathname === subItem.url)
+          if (hasActiveChild) {
+            initialOpenMap[group.title] = true
+          }
+        }
+      })
+    })
+    
+    setOpenMap(initialOpenMap)
+  }, [pathname, sections])
 
   const toggleOpen = (key: string) =>
     setOpenMap((prev) => ({ ...prev, [key]: !prev[key] }))
