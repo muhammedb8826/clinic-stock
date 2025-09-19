@@ -48,8 +48,15 @@ export class SuppliersService {
   }
 
   async remove(id: number): Promise<void> {
-    const supplier = await this.findOne(id);
-    await this.repo.remove(supplier);
+    try {
+      const supplier = await this.findOne(id);
+      await this.repo.remove(supplier);
+    } catch (error) {
+      if (error.code === '23503') { // Foreign key constraint violation
+        throw new BadRequestException('Cannot delete supplier: There are purchase orders associated with this supplier. Please delete or reassign the purchase orders first.');
+      }
+      throw error;
+    }
   }
 }
 

@@ -4,11 +4,11 @@ import { useEffect, useState } from "react";
 import { medicineApi, Medicine, CreateMedicineDto } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { MedicineForm } from "@/components/medicine-form";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, Edit, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 export default function MedicinesPage() {
@@ -16,6 +16,8 @@ export default function MedicinesPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [medicineToDelete, setMedicineToDelete] = useState<Medicine | null>(null);
   const [editingMedicine, setEditingMedicine] = useState<Medicine | null>(null);
 
   useEffect(() => {
@@ -57,16 +59,24 @@ export default function MedicinesPage() {
     setModalOpen(true);
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm("Are you sure you want to delete this medicine?")) return;
+  const handleDelete = (medicine: Medicine) => {
+    setMedicineToDelete(medicine);
+    setDeleteModalOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!medicineToDelete) return;
     
     try {
-      await medicineApi.delete(id);
+      await medicineApi.delete(medicineToDelete.id);
       toast.success("Medicine deleted successfully");
       loadMedicines();
     } catch (error) {
       console.error("Failed to delete medicine:", error);
       toast.error("Failed to delete medicine");
+    } finally {
+      setDeleteModalOpen(false);
+      setMedicineToDelete(null);
     }
   };
 
@@ -145,74 +155,121 @@ export default function MedicinesPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {loading ? (
-          <div className="text-center py-8 text-gray-500 col-span-full">Loading medicines...</div>
-        ) : filteredMedicines.length === 0 ? (
-          <div className="text-center py-8 text-gray-500 col-span-full">No medicines found.</div>
-        ) : (
-          filteredMedicines.map((medicine) => {
-            const stockStatus = getStockStatus(medicine.quantity);
-            const expiryStatus = getExpiryStatus(medicine.expiryDate);
-            
-            return (
-              <Card key={medicine.id} className="hover:shadow-lg transition-shadow">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-lg">{medicine.name}</CardTitle>
-                  <div className="flex items-center gap-2">
-                    <Badge variant={stockStatus.variant}>{stockStatus.status}</Badge>
-                    <Badge variant={expiryStatus.variant}>{expiryStatus.status}</Badge>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-500">Quantity:</span>
-                      <span className="font-medium">{medicine.quantity}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-500">Selling Price:</span>
-                      <span className="font-medium">{formatPrice(medicine.sellingPrice)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-500">Cost Price:</span>
-                      <span className="font-medium">{formatPrice(medicine.costPrice)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-500">Expiry Date:</span>
-                      <span className="font-medium">{formatDate(medicine.expiryDate)}</span>
-                    </div>
-                    {medicine.barcode && (
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-500">Barcode:</span>
-                        <span className="font-medium text-xs">{medicine.barcode}</span>
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Name</TableHead>
+              <TableHead>Category</TableHead>
+              <TableHead>Quantity</TableHead>
+              <TableHead>Selling Price</TableHead>
+              <TableHead>Cost Price</TableHead>
+              <TableHead>Expiry Date</TableHead>
+              <TableHead>Stock Status</TableHead>
+              <TableHead>Expiry Status</TableHead>
+              <TableHead>Barcode</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+                    {loading ? (
+                      <TableRow>
+                        <TableCell colSpan={10} className="text-center py-8 text-gray-500">
+                          Loading medicines...
+                        </TableCell>
+                      </TableRow>
+                    ) : filteredMedicines.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={10} className="text-center py-8 text-gray-500">
+                          No medicines found.
+                        </TableCell>
+                      </TableRow>
+            ) : (
+              filteredMedicines.map((medicine) => {
+                const stockStatus = getStockStatus(medicine.quantity);
+                const expiryStatus = getExpiryStatus(medicine.expiryDate);
+                
+                return (
+                  <TableRow key={medicine.id} className="hover:bg-gray-50">
+                    <TableCell className="font-medium">{medicine.name}</TableCell>
+                    <TableCell>
+                      {medicine.category?.name || 'N/A'}
+                    </TableCell>
+                    <TableCell>
+                      <span className={`font-medium ${medicine.quantity <= 10 ? 'text-orange-600' : 'text-green-600'}`}>
+                        {medicine.quantity}
+                      </span>
+                    </TableCell>
+                    <TableCell>{formatPrice(medicine.sellingPrice)}</TableCell>
+                    <TableCell>{formatPrice(medicine.costPrice)}</TableCell>
+                            <TableCell>
+                              <span className={expiryStatus.status === 'Expired' ? 'text-red-600' : expiryStatus.status === 'Expiring Soon' ? 'text-orange-600' : ''}>
+                                {formatDate(medicine.expiryDate)}
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={stockStatus.variant} className="text-xs w-fit">
+                                {stockStatus.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={expiryStatus.variant} className="text-xs w-fit">
+                                {expiryStatus.status}
+                              </Badge>
+                            </TableCell>
+                    <TableCell className="text-xs text-gray-500">
+                      {medicine.barcode || 'N/A'}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleEdit(medicine)}
+                          className="h-8 w-8 p-0"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  onClick={() => handleDelete(medicine)}
+                                  className="h-8 w-8 p-0"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
                       </div>
-                    )}
-                    <div className="flex gap-2 pt-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleEdit(medicine)}
-                        className="flex-1"
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => handleDelete(medicine.id)}
-                        className="flex-1"
-                      >
-                        Delete
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })
-        )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+            )}
+          </TableBody>
+        </Table>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Medicine</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p>
+              Are you sure you want to delete <strong>{medicineToDelete?.name}</strong>? 
+              This action cannot be undone.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={confirmDelete}>
+              Delete Medicine
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -32,7 +32,13 @@ export default function DashboardPage() {
     loadStats();
   }, []);
 
-  const formatPrice = (price: number) => {
+  const formatPrice = (price: number | undefined | null) => {
+    if (price === undefined || price === null || isNaN(price)) {
+      return new Intl.NumberFormat('en-ET', {
+        style: 'currency',
+        currency: 'ETB'
+      }).format(0);
+    }
     return new Intl.NumberFormat('en-ET', {
       style: 'currency',
       currency: 'ETB'
@@ -100,7 +106,7 @@ export default function DashboardPage() {
             <CardTitle className="text-sm font-medium">All Medicines</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.totalMedicines}</div>
+            <div className="text-2xl font-bold">{stats.totalMedicines || 0}</div>
             <p className="text-xs text-muted-foreground">
               Total medicines in inventory
             </p>
@@ -112,7 +118,7 @@ export default function DashboardPage() {
             <CardTitle className="text-sm font-medium">Low Stock</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-600">{stats.lowStockCount}</div>
+            <div className="text-2xl font-bold text-orange-600">{stats.lowStockCount || 0}</div>
             <p className="text-xs text-muted-foreground">
               Medicines below threshold
             </p>
@@ -124,7 +130,7 @@ export default function DashboardPage() {
             <CardTitle className="text-sm font-medium">Expired</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">{stats.expiredCount}</div>
+            <div className="text-2xl font-bold text-red-600">{stats.expiredCount || 0}</div>
             <p className="text-xs text-muted-foreground">
               Expired medicines
             </p>
@@ -136,9 +142,9 @@ export default function DashboardPage() {
             <CardTitle className="text-sm font-medium">Sales This Month</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.currentMonthSales.count}</div>
+            <div className="text-2xl font-bold">{stats.currentMonthSales?.count || 0}</div>
             <p className="text-xs text-muted-foreground">
-              {formatPrice(stats.currentMonthSales.amount)} total
+              {formatPrice(stats.currentMonthSales?.amount)} total
             </p>
           </CardContent>
         </Card>
@@ -151,7 +157,7 @@ export default function DashboardPage() {
             <CardTitle className="text-sm font-medium">Total Sales</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.totalSales}</div>
+            <div className="text-2xl font-bold">{stats.totalSales || 0}</div>
             <p className="text-xs text-muted-foreground">
               {formatPrice(stats.totalSalesAmount)} total
             </p>
@@ -190,15 +196,21 @@ export default function DashboardPage() {
         </CardHeader>
         <CardContent>
           <div className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={stats.monthlySales}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip formatter={(value) => formatPrice(Number(value))} />
-                <Bar dataKey="sales" fill="#8884d8" />
-              </BarChart>
-            </ResponsiveContainer>
+            {stats.monthlySales && stats.monthlySales.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={stats.monthlySales}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis />
+                  <Tooltip formatter={(value) => formatPrice(Number(value))} />
+                  <Bar dataKey="sales" fill="#8884d8" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-full text-gray-500">
+                No sales data available for chart
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -218,7 +230,7 @@ export default function DashboardPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {getCurrentPageItems(stats.topSellingMedicines, currentPage).map((medicine, index) => (
+              {getCurrentPageItems(stats.topSellingMedicines || [], currentPage).map((medicine, index) => (
                 <TableRow key={medicine.id}>
                   <TableCell className="font-medium">{medicine.name}</TableCell>
                   <TableCell>{medicine.quantitySold}</TableCell>
@@ -227,7 +239,7 @@ export default function DashboardPage() {
               ))}
             </TableBody>
           </Table>
-          {getTotalPages(stats.topSellingMedicines) > 1 && (
+          {getTotalPages(stats.topSellingMedicines || []) > 1 && (
             <div className="flex justify-between items-center mt-4">
               <button
                 onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
@@ -237,11 +249,11 @@ export default function DashboardPage() {
                 Previous
               </button>
               <span className="text-sm">
-                Page {currentPage} of {getTotalPages(stats.topSellingMedicines)}
+                Page {currentPage} of {getTotalPages(stats.topSellingMedicines || [])}
               </span>
               <button
-                onClick={() => setCurrentPage(prev => Math.min(getTotalPages(stats.topSellingMedicines), prev + 1))}
-                disabled={currentPage === getTotalPages(stats.topSellingMedicines)}
+                onClick={() => setCurrentPage(prev => Math.min(getTotalPages(stats.topSellingMedicines || []), prev + 1))}
+                disabled={currentPage === getTotalPages(stats.topSellingMedicines || [])}
                 className="px-3 py-1 text-sm bg-gray-200 rounded disabled:opacity-50"
               >
                 Next
@@ -268,7 +280,7 @@ export default function DashboardPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {getCurrentPageItems(stats.currentMonthSales.sales, salesPage).map((sale: Sale) => (
+              {getCurrentPageItems(stats.currentMonthSales?.sales || [], salesPage).map((sale: Sale) => (
                 <TableRow key={sale.id}>
                   <TableCell className="font-medium">{sale.saleNumber}</TableCell>
                   <TableCell>{sale.customerName || 'Walk-in'}</TableCell>
@@ -279,7 +291,7 @@ export default function DashboardPage() {
               ))}
             </TableBody>
           </Table>
-          {getTotalPages(stats.currentMonthSales.sales) > 1 && (
+          {getTotalPages(stats.currentMonthSales?.sales || []) > 1 && (
             <div className="flex justify-between items-center mt-4">
               <button
                 onClick={() => setSalesPage(prev => Math.max(1, prev - 1))}
@@ -289,11 +301,11 @@ export default function DashboardPage() {
                 Previous
               </button>
               <span className="text-sm">
-                Page {salesPage} of {getTotalPages(stats.currentMonthSales.sales)}
+                Page {salesPage} of {getTotalPages(stats.currentMonthSales?.sales || [])}
               </span>
               <button
-                onClick={() => setSalesPage(prev => Math.min(getTotalPages(stats.currentMonthSales.sales), prev + 1))}
-                disabled={salesPage === getTotalPages(stats.currentMonthSales.sales)}
+                onClick={() => setSalesPage(prev => Math.min(getTotalPages(stats.currentMonthSales?.sales || []), prev + 1))}
+                disabled={salesPage === getTotalPages(stats.currentMonthSales?.sales || [])}
                 className="px-3 py-1 text-sm bg-gray-200 rounded disabled:opacity-50"
               >
                 Next
@@ -320,7 +332,7 @@ export default function DashboardPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {getCurrentPageItems(stats.recentSales, allSalesPage).map((sale: Sale) => (
+              {getCurrentPageItems(stats.recentSales || [], allSalesPage).map((sale: Sale) => (
                 <TableRow key={sale.id}>
                   <TableCell className="font-medium">{sale.saleNumber}</TableCell>
                   <TableCell>{sale.customerName || 'Walk-in'}</TableCell>
@@ -331,7 +343,7 @@ export default function DashboardPage() {
               ))}
             </TableBody>
           </Table>
-          {getTotalPages(stats.recentSales) > 1 && (
+          {getTotalPages(stats.recentSales || []) > 1 && (
             <div className="flex justify-between items-center mt-4">
               <button
                 onClick={() => setAllSalesPage(prev => Math.max(1, prev - 1))}
@@ -341,11 +353,11 @@ export default function DashboardPage() {
                 Previous
               </button>
               <span className="text-sm">
-                Page {allSalesPage} of {getTotalPages(stats.recentSales)}
+                Page {allSalesPage} of {getTotalPages(stats.recentSales || [])}
               </span>
               <button
-                onClick={() => setAllSalesPage(prev => Math.min(getTotalPages(stats.recentSales), prev + 1))}
-                disabled={allSalesPage === getTotalPages(stats.recentSales)}
+                onClick={() => setAllSalesPage(prev => Math.min(getTotalPages(stats.recentSales || []), prev + 1))}
+                disabled={allSalesPage === getTotalPages(stats.recentSales || [])}
                 className="px-3 py-1 text-sm bg-gray-200 rounded disabled:opacity-50"
               >
                 Next

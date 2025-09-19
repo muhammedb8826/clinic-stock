@@ -12,6 +12,11 @@ export class CreateSupplierDto {
   @IsEmail({}, { message: 'Email must be a valid email address' })
   email?: string;
 
+  @ApiPropertyOptional({ example: 'John Doe' })
+  @IsOptional()
+  @IsString()
+  contactPerson?: string;
+
   @ApiPropertyOptional({ example: '+251911234567' })
   @IsOptional()
   @IsString()

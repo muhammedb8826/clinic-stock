@@ -53,7 +53,14 @@ export class CustomersService {
   }
 
   async remove(id: number): Promise<void> {
-    const customer = await this.findOne(id);
-    await this.customerRepo.remove(customer);
+    try {
+      const customer = await this.findOne(id);
+      await this.customerRepo.remove(customer);
+    } catch (error) {
+      if (error.code === '23503') { // Foreign key constraint violation
+        throw new BadRequestException('Cannot delete customer: There are sales associated with this customer. Please delete or reassign the sales first.');
+      }
+      throw error;
+    }
   }
 }

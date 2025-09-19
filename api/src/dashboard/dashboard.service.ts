@@ -129,31 +129,37 @@ export class DashboardService {
         monthlySales.set(month, existing + Number(sale.totalAmount));
       });
 
+    // Convert monthly sales map to array format
+    const monthlySalesArray = Array.from(monthlySales.entries()).map(([month, sales]) => ({
+      month,
+      sales
+    }));
+
     return {
-      overview: {
-        totalMedicines,
-        lowStockCount,
-        expiredCount,
-        expiringSoonCount,
-        totalSales,
-        totalSalesAmount
-      },
+      totalMedicines,
+      lowStockCount,
+      expiredCount,
+      expiringSoonCount,
+      totalSales,
+      totalSalesAmount,
       currentMonthSales: {
         count: currentMonthSalesCount,
         amount: currentMonthSalesAmount,
-        profit: currentMonthProfit,
         sales: currentMonthSales
       },
-      profit: {
-        total: totalProfit,
-        currentMonth: currentMonthProfit
-      },
+      currentMonthProfit,
+      totalProfit,
       lowStockMedicines: lowStockMedicines.slice(0, 10),
       expiredMedicines: expiredMedicines.slice(0, 10),
       expiringSoonMedicines: expiringSoonMedicines.slice(0, 10),
       recentSales,
-      topSellingMedicines,
-      monthlySales: Object.fromEntries(monthlySales)
+      topSellingMedicines: topSellingMedicines.map(med => ({
+        id: med.medicine.id,
+        name: med.medicine.name,
+        quantitySold: med.totalQuantity,
+        totalRevenue: med.totalRevenue
+      })),
+      monthlySales: monthlySalesArray
     };
   }
 }
