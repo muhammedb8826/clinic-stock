@@ -73,11 +73,12 @@ export default function SalesPage() {
         toast.error("Not enough stock available");
       }
     } else {
+      const unitPrice = Number(medicine.sellingPrice) || 0;
       const newItem: SaleItem = {
         medicineId: medicine.id,
         quantity: 1,
-        unitPrice: medicine.sellingPrice,
-        totalPrice: medicine.sellingPrice,
+        unitPrice: unitPrice,
+        totalPrice: unitPrice,
         medicine: medicine
       };
       setSaleItems([...saleItems, newItem]);
@@ -93,10 +94,11 @@ export default function SalesPage() {
 
     const updatedItems = saleItems.map(item => {
       if (item.medicineId === medicineId) {
+        const unitPrice = Number(item.unitPrice) || 0;
         return {
           ...item,
           quantity,
-          totalPrice: quantity * item.unitPrice
+          totalPrice: quantity * unitPrice
         };
       }
       return item;
@@ -192,14 +194,15 @@ export default function SalesPage() {
   };
 
   const getTotalAmount = () => {
-    return saleItems.reduce((sum, item) => sum + item.totalPrice, 0);
+    return saleItems.reduce((sum, item) => sum + (Number(item.totalPrice) || 0), 0);
   };
 
   const formatPrice = (price: number) => {
+    const validPrice = Number(price) || 0;
     return new Intl.NumberFormat('en-ET', {
       style: 'currency',
       currency: 'ETB'
-    }).format(price);
+    }).format(validPrice);
   };
 
   return (
