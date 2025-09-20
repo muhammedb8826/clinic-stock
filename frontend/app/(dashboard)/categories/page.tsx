@@ -103,7 +103,7 @@ export default function CategoriesPage() {
     setFormData({ name: "", description: "" });
   };
 
-  const filteredCategories = categories.filter(category =>
+  const filteredCategories = (categories || []).filter(category =>
     category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (category.description && category.description.toLowerCase().includes(searchTerm.toLowerCase()))
   );
@@ -113,7 +113,7 @@ export default function CategoriesPage() {
   };
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Categories</h1>
         <Dialog open={modalOpen} onOpenChange={setModalOpen}>
@@ -123,7 +123,7 @@ export default function CategoriesPage() {
               Add Category
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md">
+          <DialogContent>
             <DialogHeader>
               <DialogTitle>
                 {editingCategory ? 'Edit Category' : 'Add New Category'}

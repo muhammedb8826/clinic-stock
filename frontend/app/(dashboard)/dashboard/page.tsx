@@ -76,22 +76,18 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="container mx-auto p-6">
-        <div className="text-center py-8 text-gray-500">Loading dashboard...</div>
-      </div>
+      <div className="text-center py-8 text-gray-500">Loading dashboard...</div>
     );
   }
 
   if (!stats) {
     return (
-      <div className="container mx-auto p-6">
-        <div className="text-center py-8 text-gray-500">Failed to load dashboard data</div>
-      </div>
+      <div className="text-center py-8 text-gray-500">Failed to load dashboard data</div>
     );
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Dashboard</h1>
         <div className="text-sm text-gray-500">

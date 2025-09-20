@@ -112,14 +112,14 @@ export default function CustomersPage() {
     setForm({ name: "", email: "", phone: "", address: "" });
   };
 
-  const filteredCustomers = customers.filter(customer =>
+  const filteredCustomers = (customers || []).filter(customer =>
     customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     customer.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     customer.phone?.includes(searchTerm)
   );
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Customers</h1>
         <Dialog open={modalOpen} onOpenChange={setModalOpen}>
@@ -129,7 +129,7 @@ export default function CustomersPage() {
               Add Customer
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
+          <DialogContent>
             <DialogHeader>
               <DialogTitle>
                 {editingCustomer ? 'Edit Customer' : 'Add New Customer'}

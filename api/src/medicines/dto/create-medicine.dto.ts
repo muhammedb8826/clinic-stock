@@ -1,6 +1,27 @@
-import { IsString, IsOptional, MinLength, IsNotEmpty, IsInt, IsNumber, IsDateString } from 'class-validator';
+import { IsString, IsOptional, MinLength, IsNotEmpty, IsInt, IsNumber, IsDateString, Validate, ValidationArguments, ValidatorConstraint, ValidatorConstraintInterface } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+
+@ValidatorConstraint({ name: 'expiryDateAfterManufacturingDate', async: false })
+export class ExpiryDateAfterManufacturingDateConstraint implements ValidatorConstraintInterface {
+  validate(expiryDate: string, args: ValidationArguments) {
+    const object = args.object as any;
+    const manufacturingDate = object.manufacturingDate;
+    
+    if (!expiryDate || !manufacturingDate) {
+      return true; // Let other validators handle required fields
+    }
+    
+    const expiry = new Date(expiryDate);
+    const manufacturing = new Date(manufacturingDate);
+    
+    return expiry > manufacturing;
+  }
+
+  defaultMessage(args: ValidationArguments) {
+    return 'Expiry date must be ahead of manufacturing date';
+  }
+}
 
 export class CreateMedicineDto {
   @ApiProperty({
@@ -61,6 +82,7 @@ export class CreateMedicineDto {
     example: '2025-12-31',
   })
   @IsDateString()
+  @Validate(ExpiryDateAfterManufacturingDateConstraint)
   expiryDate: string;
 
   @ApiProperty({

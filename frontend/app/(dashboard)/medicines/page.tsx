@@ -27,10 +27,11 @@ export default function MedicinesPage() {
   const loadMedicines = async () => {
     try {
       const response = await medicineApi.getAll({ page: 1, limit: 1000 });
-      setMedicines(response.medicines);
+      setMedicines(response.medicines || []);
     } catch (error) {
       console.error("Failed to load medicines:", error);
       toast.error("Failed to load medicines");
+      setMedicines([]);
     } finally {
       setLoading(false);
     }
@@ -48,9 +49,35 @@ export default function MedicinesPage() {
       setModalOpen(false);
       setEditingMedicine(null);
       loadMedicines();
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Failed to save medicine:", error);
-      toast.error("Failed to save medicine");
+      
+      // Extract descriptive error message
+      let errorMessage = "Failed to save medicine";
+      
+      if (error && typeof error === 'object' && 'response' in error) {
+        const apiError = error as { response?: { data?: { message?: string; error?: string; errors?: unknown[] } } };
+        if (apiError.response?.data?.message) {
+          // Backend validation error
+          errorMessage = apiError.response.data.message;
+        } else if (apiError.response?.data?.error) {
+          // Alternative error format
+          errorMessage = apiError.response.data.error;
+        } else if (apiError.response?.data?.errors) {
+          // Validation errors array
+          const errors = apiError.response.data.errors;
+          if (Array.isArray(errors) && errors.length > 0) {
+            errorMessage = errors.map((err) => 
+              typeof err === 'object' && err && 'message' in err ? String(err.message) : String(err)
+            ).join(", ");
+          }
+        }
+      } else if (error instanceof Error) {
+        // Generic error message
+        errorMessage = error.message;
+      }
+      
+      toast.error(errorMessage);
     }
   };
 
@@ -85,7 +112,7 @@ export default function MedicinesPage() {
     setEditingMedicine(null);
   };
 
-  const filteredMedicines = medicines.filter(medicine =>
+  const filteredMedicines = (medicines || []).filter(medicine =>
     medicine.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     medicine.barcode?.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -118,7 +145,7 @@ export default function MedicinesPage() {
   };
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Medicines</h1>
         <Dialog open={modalOpen} onOpenChange={setModalOpen}>
@@ -128,7 +155,7 @@ export default function MedicinesPage() {
               Add Medicine
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+          <DialogContent>
             <DialogHeader>
               <DialogTitle>
                 {editingMedicine ? 'Edit Medicine' : 'Add New Medicine'}

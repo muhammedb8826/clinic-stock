@@ -131,7 +131,7 @@ export default function UsersPage() {
               Add User
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
+          <DialogContent>
             <DialogHeader>
               <DialogTitle>
                 {editingUser ? 'Edit User' : 'Add New User'}

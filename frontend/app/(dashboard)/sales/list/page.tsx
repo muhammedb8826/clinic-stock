@@ -195,7 +195,7 @@ export default function SalesListPage() {
                           <Eye className="h-4 w-4" />
                         </Button>
                       </DialogTrigger>
-                      <DialogContent className="max-w-2xl">
+                      <DialogContent>
                         <DialogHeader>
                           <DialogTitle>Sale Details - {sale.saleNumber}</DialogTitle>
                         </DialogHeader>

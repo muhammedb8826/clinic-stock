@@ -113,14 +113,14 @@ export default function SuppliersPage() {
     setForm({ name: "", email: "", phone: "", address: "" });
   };
 
-  const filteredSuppliers = suppliers.filter(supplier =>
+  const filteredSuppliers = (suppliers || []).filter(supplier =>
     supplier.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     supplier.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     supplier.phone?.includes(searchTerm)
   );
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Suppliers</h1>
         <Dialog open={modalOpen} onOpenChange={setModalOpen}>
@@ -130,7 +130,7 @@ export default function SuppliersPage() {
               Add Supplier
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
+          <DialogContent>
             <DialogHeader>
               <DialogTitle>
                 {editingSupplier ? 'Edit Supplier' : 'Add New Supplier'}
