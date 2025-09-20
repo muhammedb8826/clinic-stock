@@ -39,6 +39,9 @@ export class Sale {
   @OneToMany(() => SaleItem, (item) => item.sale, { cascade: true })
   items: SaleItem[];
 
+  // Computed field for profit calculation
+  calculatedProfit?: number;
+
   @CreateDateColumn()
   createdAt: Date;
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { salesApi } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,9 +21,10 @@ export default function ReportsPage() {
   });
   const [year, setYear] = useState(new Date().getFullYear());
   const [dailySales, setDailySales] = useState<Array<{ day: string; total: string }>>([]);
+  const [weeklySales, setWeeklySales] = useState<Array<{ week: string; total: string }>>([]);
   const [monthlySales, setMonthlySales] = useState<Array<{ month: string; total: string }>>([]);
 
-  const loadDailySales = async () => {
+  const loadDailySales = useCallback(async () => {
     setLoading(true);
     try {
       const response = await salesApi.reportDaily({
@@ -37,9 +38,25 @@ export default function ReportsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [dateRange.start, dateRange.end]);
 
-  const loadMonthlySales = async () => {
+  const loadWeeklySales = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await salesApi.reportWeekly({
+        start: dateRange.start,
+        end: dateRange.end
+      });
+      setWeeklySales(response);
+    } catch (error) {
+      console.error("Failed to load weekly sales:", error);
+      toast.error("Failed to load weekly sales");
+    } finally {
+      setLoading(false);
+    }
+  }, [dateRange.start, dateRange.end]);
+
+  const loadMonthlySales = useCallback(async () => {
     setLoading(true);
     try {
       const response = await salesApi.reportMonthly({ year });
@@ -50,15 +67,17 @@ export default function ReportsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [year]);
 
   useEffect(() => {
     if (reportType === "daily") {
       loadDailySales();
+    } else if (reportType === "weekly") {
+      loadWeeklySales();
     } else {
       loadMonthlySales();
     }
-  }, [reportType, dateRange, year]);
+  }, [reportType, loadDailySales, loadWeeklySales, loadMonthlySales]);
 
   const formatPrice = (price: string | number) => {
     const numPrice = typeof price === 'string' ? parseFloat(price) : price;
@@ -77,12 +96,16 @@ export default function ReportsPage() {
     return getTotalSales(data) / data.length;
   };
 
-  const currentData = reportType === "daily" ? dailySales : monthlySales;
+  const currentData = reportType === "daily" ? dailySales : reportType === "weekly" ? weeklySales : monthlySales;
   const totalSales = getTotalSales(currentData);
   const averageSales = getAverageSales(currentData);
 
   const chartData = currentData.map(item => ({
-    period: reportType === "daily" ? (item as { day: string; total: string }).day : (item as { month: string; total: string }).month,
+    period: reportType === "daily" 
+      ? (item as { day: string; total: string }).day 
+      : reportType === "weekly"
+      ? (item as { week: string; total: string }).week
+      : (item as { month: string; total: string }).month,
     sales: parseFloat(item.total)
   }));
 
@@ -114,12 +137,13 @@ export default function ReportsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="daily">Daily Sales</SelectItem>
+                  <SelectItem value="weekly">Weekly Sales</SelectItem>
                   <SelectItem value="monthly">Monthly Sales</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            {reportType === "daily" ? (
+            {reportType === "daily" || reportType === "weekly" ? (
               <>
                 <div className="space-y-2">
                   <Label htmlFor="startDate">Start Date</Label>
@@ -157,7 +181,13 @@ export default function ReportsPage() {
             )}
 
             <div className="flex items-end">
-              <Button onClick={reportType === "daily" ? loadDailySales : loadMonthlySales} disabled={loading}>
+              <Button onClick={
+                reportType === "daily" 
+                  ? loadDailySales 
+                  : reportType === "weekly" 
+                  ? loadWeeklySales 
+                  : loadMonthlySales
+              } disabled={loading}>
                 {loading ? "Loading..." : "Refresh"}
               </Button>
             </div>
@@ -175,7 +205,7 @@ export default function ReportsPage() {
           <CardContent>
             <div className="text-2xl font-bold">{formatPrice(totalSales)}</div>
             <p className="text-xs text-muted-foreground">
-              {reportType === "daily" ? "Last 30 days" : `Year ${year}`}
+              {reportType === "daily" ? "Selected date range" : reportType === "weekly" ? "Selected date range" : `Year ${year}`}
             </p>
           </CardContent>
         </Card>
@@ -188,7 +218,7 @@ export default function ReportsPage() {
           <CardContent>
             <div className="text-2xl font-bold">{formatPrice(averageSales)}</div>
             <p className="text-xs text-muted-foreground">
-              Per {reportType === "daily" ? "day" : "month"}
+              Per {reportType === "daily" ? "day" : reportType === "weekly" ? "week" : "month"}
             </p>
           </CardContent>
         </Card>
@@ -201,7 +231,7 @@ export default function ReportsPage() {
           <CardContent>
             <div className="text-2xl font-bold">{currentData.length}</div>
             <p className="text-xs text-muted-foreground">
-              {reportType === "daily" ? "days" : "months"} of data
+              {reportType === "daily" ? "days" : reportType === "weekly" ? "weeks" : "months"} of data
             </p>
           </CardContent>
         </Card>
@@ -211,7 +241,7 @@ export default function ReportsPage() {
       <Card>
         <CardHeader>
           <CardTitle>
-            {reportType === "daily" ? "Daily Sales Trend" : "Monthly Sales Trend"}
+            {reportType === "daily" ? "Daily Sales Trend" : reportType === "weekly" ? "Weekly Sales Trend" : "Monthly Sales Trend"}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -246,14 +276,14 @@ export default function ReportsPage() {
       <Card>
         <CardHeader>
           <CardTitle>
-            {reportType === "daily" ? "Daily Sales Data" : "Monthly Sales Data"}
+            {reportType === "daily" ? "Daily Sales Data" : reportType === "weekly" ? "Weekly Sales Data" : "Monthly Sales Data"}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>{reportType === "daily" ? "Date" : "Month"}</TableHead>
+                <TableHead>{reportType === "daily" ? "Date" : reportType === "weekly" ? "Week" : "Month"}</TableHead>
                 <TableHead className="text-right">Sales Amount</TableHead>
               </TableRow>
             </TableHeader>
@@ -274,7 +304,11 @@ export default function ReportsPage() {
                 currentData.map((item, index) => (
                   <TableRow key={index}>
                     <TableCell className="font-medium">
-                      {reportType === "daily" ? (item as { day: string; total: string }).day : (item as { month: string; total: string }).month}
+                      {reportType === "daily" 
+                        ? (item as { day: string; total: string }).day 
+                        : reportType === "weekly"
+                        ? (item as { week: string; total: string }).week
+                        : (item as { month: string; total: string }).month}
                     </TableCell>
                     <TableCell className="text-right font-medium">
                       {formatPrice(item.total)}

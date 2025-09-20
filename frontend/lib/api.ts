@@ -395,6 +395,7 @@ export const salesApi = {
   create: async (data: CreateSaleDto): Promise<Sale> => { const res = await api.post('/sales', data); return res.data },
   list: async (): Promise<Sale[]> => { const res = await api.get('/sales'); return res.data },
   reportDaily: async (params?: { start?: string; end?: string }): Promise<Array<{ day: string; total: string }>> => { const res = await api.get('/sales/reports/daily', { params }); return res.data },
+  reportWeekly: async (params?: { start?: string; end?: string }): Promise<Array<{ week: string; total: string }>> => { const res = await api.get('/sales/reports/weekly', { params }); return res.data },
   reportMonthly: async (params?: { year?: number }): Promise<Array<{ month: string; total: string }>> => { const res = await api.get('/sales/reports/monthly', { params }); return res.data },
 };
 

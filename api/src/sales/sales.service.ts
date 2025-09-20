@@ -60,9 +60,22 @@ export class SalesService {
   }
 
   async list(): Promise<Sale[]> {
-    return this.saleRepo.find({ 
-      relations: ['items'],
+    const sales = await this.saleRepo.find({ 
+      relations: ['items', 'items.medicine'],
       order: { createdAt: 'DESC' } 
+    });
+
+    // Calculate profit for each sale
+    return sales.map(sale => {
+      const calculatedProfit = sale.items?.reduce((sum, item) => {
+        if (item.medicine) {
+          const profitPerUnit = Number(item.medicine.sellingPrice) - Number(item.medicine.costPrice);
+          return sum + (profitPerUnit * item.quantity);
+        }
+        return sum;
+      }, 0) || 0;
+
+      return { ...sale, calculatedProfit };
     });
   }
 
@@ -84,6 +97,17 @@ export class SalesService {
       .groupBy('month')
       .orderBy('month', 'ASC');
     if (year) qb.andWhere("EXTRACT(year from s.saleDate) = :y", { y: year });
+    return qb.getRawMany();
+  }
+
+  async reportWeekly(startIso?: string, endIso?: string) {
+    const qb = this.saleRepo.createQueryBuilder('s')
+      .select("TO_CHAR(s.saleDate, 'YYYY-\"W\"WW')", 'week')
+      .addSelect('SUM(s.totalAmount)', 'total')
+      .groupBy('week')
+      .orderBy('week', 'ASC');
+    if (startIso) qb.andWhere('s.saleDate >= :start', { start: startIso });
+    if (endIso) qb.andWhere('s.saleDate <= :end', { end: endIso });
     return qb.getRawMany();
   }
 }

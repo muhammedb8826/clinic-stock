@@ -20,8 +20,9 @@ export class DashboardService {
       relations: ['category']
     });
 
-    // Get all sales
+    // Get all sales with items and medicine relations
     const sales = await this.saleRepo.find({
+      relations: ['items', 'items.medicine'],
       order: { createdAt: 'DESC' }
     });
 
@@ -60,9 +61,8 @@ export class DashboardService {
     // Calculate profit metrics
     const totalProfit = sales.reduce((sum, sale) => {
       const saleProfit = sale.items?.reduce((itemSum, item) => {
-        const medicine = medicines.find(m => m.id === item.medicineId);
-        if (medicine) {
-          const profitPerUnit = Number(medicine.sellingPrice) - Number(medicine.costPrice);
+        if (item.medicine) {
+          const profitPerUnit = Number(item.medicine.sellingPrice) - Number(item.medicine.costPrice);
           return itemSum + (profitPerUnit * item.quantity);
         }
         return itemSum;
@@ -72,9 +72,8 @@ export class DashboardService {
 
     const currentMonthProfit = currentMonthSales.reduce((sum, sale) => {
       const saleProfit = sale.items?.reduce((itemSum, item) => {
-        const medicine = medicines.find(m => m.id === item.medicineId);
-        if (medicine) {
-          const profitPerUnit = Number(medicine.sellingPrice) - Number(medicine.costPrice);
+        if (item.medicine) {
+          const profitPerUnit = Number(item.medicine.sellingPrice) - Number(item.medicine.costPrice);
           return itemSum + (profitPerUnit * item.quantity);
         }
         return itemSum;
@@ -85,9 +84,8 @@ export class DashboardService {
     // Get all sales with profit calculation
     const salesWithProfit = sales.map(sale => {
       const saleProfit = sale.items?.reduce((itemSum, item) => {
-        const medicine = medicines.find(m => m.id === item.medicineId);
-        if (medicine) {
-          const profitPerUnit = Number(medicine.sellingPrice) - Number(medicine.costPrice);
+        if (item.medicine) {
+          const profitPerUnit = Number(item.medicine.sellingPrice) - Number(item.medicine.costPrice);
           return itemSum + (profitPerUnit * item.quantity);
         }
         return itemSum;
@@ -102,12 +100,11 @@ export class DashboardService {
     
     sales.forEach(sale => {
       sale.items?.forEach(item => {
-        const medicine = medicines.find(m => m.id === item.medicineId);
-        if (medicine) {
-          const existing = medicineSales.get(medicine.id) || { medicine, totalQuantity: 0, totalRevenue: 0 };
+        if (item.medicine) {
+          const existing = medicineSales.get(item.medicine.id) || { medicine: item.medicine, totalQuantity: 0, totalRevenue: 0 };
           existing.totalQuantity += item.quantity;
           existing.totalRevenue += Number(item.totalPrice);
-          medicineSales.set(medicine.id, existing);
+          medicineSales.set(item.medicine.id, existing);
         }
       });
     });

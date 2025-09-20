@@ -27,6 +27,11 @@ export class SalesController {
   reportMonthly(@Query('year') year?: string) {
     return this.service.reportMonthly(year ? parseInt(year) : undefined);
   }
+
+  @Get('reports/weekly')
+  reportWeekly(@Query('start') start?: string, @Query('end') end?: string) {
+    return this.service.reportWeekly(start, end);
+  }
 }
 
 
