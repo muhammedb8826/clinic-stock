@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Plus, Minus, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 
@@ -33,6 +34,16 @@ export default function CreatePurchaseOrderPage() {
   });
 
   const [items, setItems] = useState<PurchaseOrderItem[]>([]);
+  
+  // Supplier creation modal state
+  const [supplierModalOpen, setSupplierModalOpen] = useState(false);
+  const [supplierForm, setSupplierForm] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    address: ""
+  });
+  const [creatingSupplier, setCreatingSupplier] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -60,17 +71,41 @@ export default function CreatePurchaseOrderPage() {
     setItems(items.filter((_, i) => i !== index));
   };
 
-  const updateItem = (index: number, field: keyof PurchaseOrderItem, value: any) => {
+  const updateItem = (index: number, field: keyof PurchaseOrderItem, value: string | number) => {
     const newItems = [...items];
     newItems[index] = { ...newItems[index], [field]: value };
     
     // Update medicine info when medicineId changes
     if (field === 'medicineId') {
-      const medicine = medicines.find(m => m.id === parseInt(value));
+      const medicine = medicines.find(m => m.id === parseInt(String(value)));
       newItems[index].medicine = medicine;
     }
     
     setItems(newItems);
+  };
+
+  const handleSupplierCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCreatingSupplier(true);
+
+    try {
+      const newSupplier = await supplierApi.create(supplierForm);
+      setSuppliers([...suppliers, newSupplier]);
+      
+      // Auto-select the newly created supplier
+      setFormData({ ...formData, supplierId: newSupplier.id.toString() });
+      
+      // Reset form and close modal
+      setSupplierForm({ name: "", email: "", phone: "", address: "" });
+      setSupplierModalOpen(false);
+      
+      toast.success("Supplier created successfully and selected");
+    } catch (error) {
+      console.error("Failed to create supplier:", error);
+      toast.error("Failed to create supplier");
+    } finally {
+      setCreatingSupplier(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -136,6 +171,60 @@ export default function CreatePurchaseOrderPage() {
         <h1 className="text-3xl font-bold">Create Purchase Order</h1>
       </div>
 
+      {/* Supplier Creation Modal - Outside main form to avoid conflicts */}
+      <Dialog open={supplierModalOpen} onOpenChange={setSupplierModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add New Supplier</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSupplierCreate} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="supplierName">Company Name *</Label>
+              <Input
+                id="supplierName"
+                value={supplierForm.name}
+                onChange={(e) => setSupplierForm({ ...supplierForm, name: e.target.value })}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="supplierEmail">Email</Label>
+              <Input
+                id="supplierEmail"
+                type="email"
+                value={supplierForm.email}
+                onChange={(e) => setSupplierForm({ ...supplierForm, email: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="supplierPhone">Phone</Label>
+              <Input
+                id="supplierPhone"
+                value={supplierForm.phone}
+                onChange={(e) => setSupplierForm({ ...supplierForm, phone: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="supplierAddress">Address</Label>
+              <Textarea
+                id="supplierAddress"
+                value={supplierForm.address}
+                onChange={(e) => setSupplierForm({ ...supplierForm, address: e.target.value })}
+                rows={3}
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setSupplierModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={creatingSupplier}>
+                {creatingSupplier ? "Creating..." : "Create Supplier"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       <form onSubmit={handleSubmit} className="space-y-6">
         <Card>
           <CardHeader>
@@ -144,9 +233,20 @@ export default function CreatePurchaseOrderPage() {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="supplierId">Supplier *</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="supplierId">Supplier *</Label>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setSupplierModalOpen(true)}
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Supplier
+                  </Button>
+                </div>
                 <Select value={formData.supplierId} onValueChange={(value) => setFormData({ ...formData, supplierId: value })}>
-                  <SelectTrigger>
+                  <SelectTrigger className="h-10">
                     <SelectValue placeholder="Select supplier" />
                   </SelectTrigger>
                   <SelectContent>
@@ -204,7 +304,7 @@ export default function CreatePurchaseOrderPage() {
           <CardContent>
             {items.length === 0 ? (
               <div className="text-center py-8 text-gray-500">
-                No items added yet. Click "Add Item" to start.
+                No items added yet. Click &quot;Add Item&quot; to start.
               </div>
             ) : (
               <div className="space-y-4">
@@ -215,7 +315,7 @@ export default function CreatePurchaseOrderPage() {
                         value={item.medicineId.toString()}
                         onValueChange={(value) => updateItem(index, 'medicineId', parseInt(value))}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger className="h-10">
                           <SelectValue placeholder="Select medicine" />
                         </SelectTrigger>
                         <SelectContent>
