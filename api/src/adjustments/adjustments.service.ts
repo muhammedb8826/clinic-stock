@@ -1,8 +1,8 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { StockAdjustment } from './entities/stock-adjustment.entity.js';
-import { CreateAdjustmentDto } from './dto/create-adjustment.dto.js';
+import { StockAdjustment } from './entities/stock-adjustment.entity';
+import { CreateAdjustmentDto } from './dto/create-adjustment.dto';
 import { Inventory, InventoryStatus } from '../inventory/entities/inventory.entity';
 
 @Injectable()

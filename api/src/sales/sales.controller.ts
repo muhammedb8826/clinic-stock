@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { SalesService } from './sales.service.js';
-import { CreateSaleDto } from './dto/create-sale.dto.js';
+import { SalesService } from './sales.service';
+import { CreateSaleDto } from './dto/create-sale.dto';
 
 @ApiTags('sales')
 @Controller('sales')

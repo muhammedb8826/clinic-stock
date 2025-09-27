@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Post } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { AdjustmentsService } from './adjustments.service.js';
-import { CreateAdjustmentDto } from './dto/create-adjustment.dto.js';
+import { AdjustmentsService } from './adjustments.service';
+import { CreateAdjustmentDto } from './dto/create-adjustment.dto';
 
 @ApiTags('adjustments')
 @Controller('adjustments')
