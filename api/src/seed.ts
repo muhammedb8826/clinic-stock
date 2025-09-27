@@ -11,6 +11,10 @@ import { Customer } from './customers/entities/customer.entity';
 import { User } from './users/entities/user.entity';
 import { Medicine } from './medicines/entities/medicine.entity';
 import { Inventory, InventoryStatus } from './inventory/entities/inventory.entity';
+import { PurchaseOrder, PurchaseOrderStatus } from './purchase-orders/entities/purchase-order.entity';
+import { PurchaseOrderItem } from './purchase-orders/entities/purchase-order-item.entity';
+import { Sale } from './sales/entities/sale.entity';
+import { SaleItem } from './sales/entities/sale-item.entity';
 
 async function upsert<T extends { id?: number }>(repo: Repository<T>, partials: Partial<T>[], uniqueKeys: (keyof T)[]) {
   for (const partial of partials) {
@@ -36,6 +40,10 @@ async function bootstrap() {
     const userRepo = app.get<Repository<User>>(getRepositoryToken(User));
     const medicineRepo = app.get<Repository<Medicine>>(getRepositoryToken(Medicine));
     const inventoryRepo = app.get<Repository<Inventory>>(getRepositoryToken(Inventory));
+    const purchaseOrderRepo = app.get<Repository<PurchaseOrder>>(getRepositoryToken(PurchaseOrder));
+    const purchaseOrderItemRepo = app.get<Repository<PurchaseOrderItem>>(getRepositoryToken(PurchaseOrderItem));
+    const saleRepo = app.get<Repository<Sale>>(getRepositoryToken(Sale));
+    const saleItemRepo = app.get<Repository<SaleItem>>(getRepositoryToken(SaleItem));
 
     // Categories
     const categoriesSeed: Array<Partial<Category>> = [
@@ -157,6 +165,111 @@ async function bootstrap() {
       const existing = await inventoryRepo.findOne({ where: { batchNumber: inv.batchNumber as string } });
       if (!existing) {
         await inventoryRepo.save(inventoryRepo.create(inv as Inventory));
+      }
+    }
+
+    // Purchase Orders
+    const suppliers = await supplierRepo.find();
+    const supplierByName = Object.fromEntries(suppliers.map(s => [s.name, s]));
+
+    const purchaseOrdersSeed: Array<Partial<PurchaseOrder>> = [
+      {
+        orderNumber: 'PO-2025-001',
+        supplierId: supplierByName['Ethiomed Pharma']?.id,
+        status: PurchaseOrderStatus.RECEIVED,
+        orderDate: new Date('2025-01-10'),
+        expectedDeliveryDate: new Date('2025-01-15'),
+        receivedDate: new Date('2025-01-15'),
+        notes: 'Initial stock order for pain relief medicines',
+      },
+      {
+        orderNumber: 'PO-2025-002',
+        supplierId: supplierByName['Addis Pharma']?.id,
+        status: PurchaseOrderStatus.ORDERED,
+        orderDate: new Date('2025-01-20'),
+        expectedDeliveryDate: new Date('2025-01-25'),
+        notes: 'Antibiotics restock order',
+      },
+    ];
+
+    for (const poData of purchaseOrdersSeed) {
+      const existing = await purchaseOrderRepo.findOne({ where: { orderNumber: poData.orderNumber as string } });
+      if (!existing) {
+        const po = await purchaseOrderRepo.save(purchaseOrderRepo.create(poData as PurchaseOrder));
+        
+        // Add items to purchase orders
+        if (po.orderNumber === 'PO-2025-001') {
+          const paracetamol = medicineByName['Paracetamol 500mg'];
+          if (paracetamol) {
+            await purchaseOrderItemRepo.save(purchaseOrderItemRepo.create({
+              purchaseOrderId: po.id,
+              medicineId: paracetamol.id,
+              quantity: 500,
+            }));
+          }
+        } else if (po.orderNumber === 'PO-2025-002') {
+          const amoxicillin = medicineByName['Amoxicillin 500mg'];
+          if (amoxicillin) {
+            await purchaseOrderItemRepo.save(purchaseOrderItemRepo.create({
+              purchaseOrderId: po.id,
+              medicineId: amoxicillin.id,
+              quantity: 200,
+            }));
+          }
+        }
+      }
+    }
+
+    // Sales
+    const salesSeed: Array<Partial<Sale>> = [
+      {
+        saleNumber: 'SALE-2025-001',
+        saleDate: new Date('2025-01-18'),
+        customerName: 'Walk-in Customer',
+        totalAmount: 51.0 as any,
+        discount: 0 as any,
+        tax: 0 as any,
+      },
+      {
+        saleNumber: 'SALE-2025-002',
+        saleDate: new Date('2025-01-19'),
+        customerName: 'City Clinic',
+        customerPhone: '+251911123456',
+        totalAmount: 150.0 as any,
+        discount: 10.0 as any,
+        tax: 14.0 as any,
+      },
+    ];
+
+    for (const saleData of salesSeed) {
+      const existing = await saleRepo.findOne({ where: { saleNumber: saleData.saleNumber as string } });
+      if (!existing) {
+        const sale = await saleRepo.save(saleRepo.create(saleData as Sale));
+        
+        // Add items to sales
+        if (sale.saleNumber === 'SALE-2025-001') {
+          const paracetamol = medicineByName['Paracetamol 500mg'];
+          if (paracetamol) {
+            await saleItemRepo.save(saleItemRepo.create({
+              saleId: sale.id,
+              medicineId: paracetamol.id,
+              quantity: 2,
+              unitPrice: 25.5 as any,
+              totalPrice: 51.0 as any,
+            }));
+          }
+        } else if (sale.saleNumber === 'SALE-2025-002') {
+          const amoxicillin = medicineByName['Amoxicillin 500mg'];
+          if (amoxicillin) {
+            await saleItemRepo.save(saleItemRepo.create({
+              saleId: sale.id,
+              medicineId: amoxicillin.id,
+              quantity: 2,
+              unitPrice: 75.0 as any,
+              totalPrice: 150.0 as any,
+            }));
+          }
+        }
       }
     }
 
