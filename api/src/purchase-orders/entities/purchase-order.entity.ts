@@ -1,7 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Supplier } from '../../suppliers/entities/supplier.entity.js';
-import { PurchaseOrderItem } from './purchase-order-item.entity.js';
+import { Supplier } from '../../suppliers/entities/supplier.entity';
+import { PurchaseOrderItem } from './purchase-order-item.entity';
 
 export enum PurchaseOrderStatus {
   DRAFT = 'draft',

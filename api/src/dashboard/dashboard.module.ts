@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { DashboardService } from './dashboard.service.js';
-import { DashboardController } from './dashboard.controller.js';
+import { DashboardService } from './dashboard.service';
+import { DashboardController } from './dashboard.controller';
 import { Medicine } from '../medicines/entities/medicine.entity';
 import { Sale } from '../sales/entities/sale.entity';
 

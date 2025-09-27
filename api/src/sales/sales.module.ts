@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { SalesService } from './sales.service.js';
-import { SalesController } from './sales.controller.js';
-import { Sale } from './entities/sale.entity.js';
-import { SaleItem } from './entities/sale-item.entity.js';
+import { SalesService } from './sales.service';
+import { SalesController } from './sales.controller';
+import { Sale } from './entities/sale.entity';
+import { SaleItem } from './entities/sale-item.entity';
 import { Medicine } from '../medicines/entities/medicine.entity';
 
 @Module({
