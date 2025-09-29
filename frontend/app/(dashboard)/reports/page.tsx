@@ -1,139 +1,178 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { salesApi } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
-import { Download, Calendar, TrendingUp, DollarSign } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+} from "recharts";
+import {
+  Download,
+  CalendarRange,
+  TrendingUp,
+  DollarSign,
+  RefreshCcw,
+} from "lucide-react";
 import { toast } from "sonner";
+
+type DailyItem = { day: string; total: string };
+type WeeklyItem = { week: string; total: string };
+type MonthlyItem = { month: string; total: string };
+type NormItem = { label: string; total: number };
 
 export default function ReportsPage() {
   const [loading, setLoading] = useState(false);
-  const [reportType, setReportType] = useState("daily");
+  const [reportType, setReportType] = useState<"daily" | "weekly" | "monthly">(
+    "daily"
+  );
+
   const [dateRange, setDateRange] = useState({
-    start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    end: new Date().toISOString().split('T')[0]
+    start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .split("T")[0],
+    end: new Date().toISOString().split("T")[0],
   });
   const [year, setYear] = useState(new Date().getFullYear());
-  const [dailySales, setDailySales] = useState<Array<{ day: string; total: string }>>([]);
-  const [weeklySales, setWeeklySales] = useState<Array<{ week: string; total: string }>>([]);
-  const [monthlySales, setMonthlySales] = useState<Array<{ month: string; total: string }>>([]);
 
-  const loadDailySales = useCallback(async () => {
+  const [dailySales, setDailySales] = useState<DailyItem[]>([]);
+  const [weeklySales, setWeeklySales] = useState<WeeklyItem[]>([]);
+  const [monthlySales, setMonthlySales] = useState<MonthlyItem[]>([]);
+
+  const formatPrice = (price: number) =>
+    new Intl.NumberFormat("en-ET", {
+      style: "currency",
+      currency: "ETB",
+      maximumFractionDigits: 2,
+    }).format(price || 0);
+
+  const fetchReports = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await salesApi.reportDaily({
-        start: dateRange.start,
-        end: dateRange.end
-      });
-      setDailySales(response);
-    } catch (error) {
-      console.error("Failed to load daily sales:", error);
-      toast.error("Failed to load daily sales");
+      if (reportType === "daily") {
+        const res = await salesApi.reportDaily({
+          start: dateRange.start,
+          end: dateRange.end,
+        });
+        setDailySales(res);
+      } else if (reportType === "weekly") {
+        const res = await salesApi.reportWeekly({
+          start: dateRange.start,
+          end: dateRange.end,
+        });
+        setWeeklySales(res);
+      } else {
+        const res = await salesApi.reportMonthly({ year });
+        setMonthlySales(res);
+      }
+    } catch (err) {
+      console.error("Failed to load reports:", err);
+      toast.error("Failed to load report data");
     } finally {
       setLoading(false);
     }
-  }, [dateRange.start, dateRange.end]);
-
-  const loadWeeklySales = useCallback(async () => {
-    setLoading(true);
-    try {
-      const response = await salesApi.reportWeekly({
-        start: dateRange.start,
-        end: dateRange.end
-      });
-      setWeeklySales(response);
-    } catch (error) {
-      console.error("Failed to load weekly sales:", error);
-      toast.error("Failed to load weekly sales");
-    } finally {
-      setLoading(false);
-    }
-  }, [dateRange.start, dateRange.end]);
-
-  const loadMonthlySales = useCallback(async () => {
-    setLoading(true);
-    try {
-      const response = await salesApi.reportMonthly({ year });
-      setMonthlySales(response);
-    } catch (error) {
-      console.error("Failed to load monthly sales:", error);
-      toast.error("Failed to load monthly sales");
-    } finally {
-      setLoading(false);
-    }
-  }, [year]);
+  }, [reportType, dateRange.start, dateRange.end, year]);
 
   useEffect(() => {
-    if (reportType === "daily") {
-      loadDailySales();
-    } else if (reportType === "weekly") {
-      loadWeeklySales();
-    } else {
-      loadMonthlySales();
+    fetchReports();
+  }, [fetchReports]);
+
+  // Normalize data for chart + table
+  const data: NormItem[] = useMemo(() => {
+    if (reportType === "daily")
+      return dailySales.map((d) => ({ label: d.day, total: parseFloat(d.total) || 0 }));
+    if (reportType === "weekly")
+      return weeklySales.map((w) => ({ label: w.week, total: parseFloat(w.total) || 0 }));
+    return monthlySales.map((m) => ({ label: m.month, total: parseFloat(m.total) || 0 }));
+  }, [reportType, dailySales, weeklySales, monthlySales]);
+
+  const totals = useMemo(() => {
+    const total = data.reduce((s, i) => s + (i.total || 0), 0);
+    const avg = data.length ? total / data.length : 0;
+    return { total, avg };
+  }, [data]);
+
+  const handleExport = () => {
+    if (!data.length) {
+      toast.info("No data to export");
+      return;
     }
-  }, [reportType, loadDailySales, loadWeeklySales, loadMonthlySales]);
-
-  const formatPrice = (price: string | number) => {
-    const numPrice = typeof price === 'string' ? parseFloat(price) : price;
-    return new Intl.NumberFormat('en-ET', {
-      style: 'currency',
-      currency: 'ETB'
-    }).format(numPrice);
+    const header =
+      reportType === "daily" ? "Date" : reportType === "weekly" ? "Week" : "Month";
+    const rows = [["Period", "Total (ETB)"], ...data.map((d) => [d.label, d.total.toString()])];
+    const csv = rows.map((r) => r.join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `milkii-${reportType}-report.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success("Report exported");
   };
-
-  const getTotalSales = (data: Array<{ total: string }>) => {
-    return data.reduce((sum, item) => sum + parseFloat(item.total), 0);
-  };
-
-  const getAverageSales = (data: Array<{ total: string }>) => {
-    if (data.length === 0) return 0;
-    return getTotalSales(data) / data.length;
-  };
-
-  const currentData = reportType === "daily" ? dailySales : reportType === "weekly" ? weeklySales : monthlySales;
-  const totalSales = getTotalSales(currentData);
-  const averageSales = getAverageSales(currentData);
-
-  const chartData = currentData.map(item => ({
-    period: reportType === "daily" 
-      ? (item as { day: string; total: string }).day 
-      : reportType === "weekly"
-      ? (item as { week: string; total: string }).week
-      : (item as { month: string; total: string }).month,
-    sales: parseFloat(item.total)
-  }));
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Reports</h1>
-        <Button variant="outline">
-          <Download className="mr-2 h-4 w-4" />
-          Export Report
-        </Button>
+      {/* Header */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-3xl font-bold tracking-tight">Reports</h1>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleExport} disabled={!data.length}>
+            <Download className="mr-2 h-4 w-4" />
+            Export CSV
+          </Button>
+          <Button variant="outline" onClick={fetchReports} disabled={loading}>
+            <RefreshCcw className="mr-2 h-4 w-4" />
+            {loading ? "Refreshing…" : "Refresh"}
+          </Button>
+        </div>
       </div>
 
-      {/* Report Controls */}
-      <Card>
+      {/* Controls */}
+      <Card className="overflow-hidden">
+        <div className="h-1 w-full bg-gradient-to-r from-emerald-400 via-blue-500 to-emerald-400" />
         <CardHeader>
           <CardTitle className="flex items-center">
-            <Calendar className="mr-2 h-5 w-5" />
+            <CalendarRange className="mr-2 h-5 w-5" />
             Report Settings
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {/* Type */}
             <div className="space-y-2">
               <Label htmlFor="reportType">Report Type</Label>
-              <Select value={reportType} onValueChange={setReportType}>
-                <SelectTrigger>
-                  <SelectValue />
+              <Select
+                value={reportType}
+                onValueChange={(v: "daily" | "weekly" | "monthly") => setReportType(v)}
+              >
+                <SelectTrigger id="reportType">
+                  <SelectValue placeholder="Choose report type" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="daily">Daily Sales</SelectItem>
@@ -143,7 +182,29 @@ export default function ReportsPage() {
               </Select>
             </div>
 
-            {reportType === "daily" || reportType === "weekly" ? (
+            {/* Dates / Year */}
+            {reportType === "monthly" ? (
+              <div className="space-y-2">
+                <Label htmlFor="year">Year</Label>
+                <Select
+                  value={year.toString()}
+                  onValueChange={(v) => setYear(parseInt(v))}
+                >
+                  <SelectTrigger id="year">
+                    <SelectValue placeholder="Select year" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - i).map(
+                      (y) => (
+                        <SelectItem key={y} value={y.toString()}>
+                          {y}
+                        </SelectItem>
+                      )
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : (
               <>
                 <div className="space-y-2">
                   <Label htmlFor="startDate">Start Date</Label>
@@ -151,7 +212,9 @@ export default function ReportsPage() {
                     id="startDate"
                     type="date"
                     value={dateRange.start}
-                    onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
+                    onChange={(e) =>
+                      setDateRange((s) => ({ ...s, start: e.target.value }))
+                    }
                   />
                 </div>
                 <div className="space-y-2">
@@ -160,111 +223,98 @@ export default function ReportsPage() {
                     id="endDate"
                     type="date"
                     value={dateRange.end}
-                    onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
+                    onChange={(e) =>
+                      setDateRange((s) => ({ ...s, end: e.target.value }))
+                    }
                   />
                 </div>
               </>
-            ) : (
-              <div className="space-y-2">
-                <Label htmlFor="year">Year</Label>
-                <Select value={year.toString()} onValueChange={(value) => setYear(parseInt(value))}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map(y => (
-                      <SelectItem key={y} value={y.toString()}>{y}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
             )}
 
+            {/* Action */}
             <div className="flex items-end">
-              <Button onClick={
-                reportType === "daily" 
-                  ? loadDailySales 
-                  : reportType === "weekly" 
-                  ? loadWeeklySales 
-                  : loadMonthlySales
-              } disabled={loading}>
-                {loading ? "Loading..." : "Refresh"}
+              <Button onClick={fetchReports} disabled={loading}>
+                {loading ? "Loading…" : "Apply"}
               </Button>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Summary Cards */}
+      {/* Summary */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Sales</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatPrice(totalSales)}</div>
-            <p className="text-xs text-muted-foreground">
-              {reportType === "daily" ? "Selected date range" : reportType === "weekly" ? "Selected date range" : `Year ${year}`}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Average Sales</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatPrice(averageSales)}</div>
-            <p className="text-xs text-muted-foreground">
-              Per {reportType === "daily" ? "day" : reportType === "weekly" ? "week" : "month"}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Data Points</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{currentData.length}</div>
-            <p className="text-xs text-muted-foreground">
-              {reportType === "daily" ? "days" : reportType === "weekly" ? "weeks" : "months"} of data
-            </p>
-          </CardContent>
-        </Card>
+        <SummaryCard
+          title="Total Sales"
+          value={formatPrice(totals.total)}
+          subtitle={
+            reportType === "monthly" ? `Year ${year}` : "Selected date range"
+          }
+          icon={<DollarSign className="h-4 w-4 text-emerald-700" />}
+        />
+        <SummaryCard
+          title="Average Sales"
+          value={formatPrice(totals.avg)}
+          subtitle={`Per ${
+            reportType === "daily" ? "day" : reportType === "weekly" ? "week" : "month"
+          }`}
+          icon={<TrendingUp className="h-4 w-4 text-blue-700" />}
+        />
+        <SummaryCard
+          title="Data Points"
+          value={data.length.toString()}
+          subtitle={`${reportType === "daily" ? "days" : reportType === "weekly" ? "weeks" : "months"} of data`}
+          icon={<CalendarRange className="h-4 w-4 text-emerald-700" />}
+        />
       </div>
 
       {/* Chart */}
       <Card>
         <CardHeader>
           <CardTitle>
-            {reportType === "daily" ? "Daily Sales Trend" : reportType === "weekly" ? "Weekly Sales Trend" : "Monthly Sales Trend"}
+            {reportType === "daily"
+              ? "Daily Sales Trend"
+              : reportType === "weekly"
+              ? "Weekly Sales Trend"
+              : "Monthly Sales Trend"}
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="h-[400px]">
+          <div className="h-[380px]">
             {loading ? (
-              <div className="flex items-center justify-center h-full">
-                <div className="text-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                  <p className="text-gray-500">Loading chart data...</p>
-                </div>
+              <div className="flex h-full items-center justify-center text-gray-500">
+                Loading chart…
               </div>
-            ) : chartData.length > 0 ? (
+            ) : data.length ? (
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="period" />
-                  <YAxis tickFormatter={(value) => formatPrice(value)} />
-                  <Tooltip formatter={(value) => formatPrice(Number(value))} />
-                  <Line type="monotone" dataKey="sales" stroke="#8884d8" strokeWidth={2} />
-                </LineChart>
+                <AreaChart data={data}>
+                  <defs>
+                    <linearGradient id="areaFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#10b981" stopOpacity={0.45} />
+                      <stop offset="100%" stopColor="#2563eb" stopOpacity={0.1} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="label" tick={{ fill: "#6b7280", fontSize: 12 }} />
+                  <YAxis
+                    tick={{ fill: "#6b7280", fontSize: 12 }}
+                    tickFormatter={(v) => formatPrice(Number(v))}
+                  />
+                  <Tooltip
+                    formatter={(v: any) => formatPrice(Number(v))}
+                    labelClassName="text-gray-700"
+                    contentStyle={{ borderRadius: 12, borderColor: "#e5e7eb" }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="total"
+                    stroke="#2563eb"
+                    strokeWidth={2}
+                    fill="url(#areaFill)"
+                  />
+                </AreaChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex items-center justify-center h-full text-gray-500">
+              <div className="flex h-full items-center justify-center text-gray-500">
                 No data available for the selected period
               </div>
             )}
@@ -273,53 +323,90 @@ export default function ReportsPage() {
       </Card>
 
       {/* Data Table */}
-      <Card>
+      <Card className="overflow-hidden">
+        <div className="h-1 w-full bg-gradient-to-r from-emerald-400 via-blue-500 to-emerald-400" />
         <CardHeader>
           <CardTitle>
-            {reportType === "daily" ? "Daily Sales Data" : reportType === "weekly" ? "Weekly Sales Data" : "Monthly Sales Data"}
+            {reportType === "daily"
+              ? "Daily Sales Data"
+              : reportType === "weekly"
+              ? "Weekly Sales Data"
+              : "Monthly Sales Data"}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>{reportType === "daily" ? "Date" : reportType === "weekly" ? "Week" : "Month"}</TableHead>
+                <TableHead>
+                  {reportType === "daily"
+                    ? "Date"
+                    : reportType === "weekly"
+                    ? "Week"
+                    : "Month"}
+                </TableHead>
                 <TableHead className="text-right">Sales Amount</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={2} className="text-center py-8 text-gray-500">
-                    Loading data...
+                  <TableCell colSpan={2} className="py-8 text-center text-gray-500">
+                    Loading data…
                   </TableCell>
                 </TableRow>
-              ) : currentData.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={2} className="text-center py-8 text-gray-500">
-                    No data available for the selected period
-                  </TableCell>
-                </TableRow>
-              ) : (
-                currentData.map((item, index) => (
-                  <TableRow key={index}>
-                    <TableCell className="font-medium">
-                      {reportType === "daily" 
-                        ? (item as { day: string; total: string }).day 
-                        : reportType === "weekly"
-                        ? (item as { week: string; total: string }).week
-                        : (item as { month: string; total: string }).month}
-                    </TableCell>
+              ) : data.length ? (
+                data.map((row, idx) => (
+                  <TableRow key={idx}>
+                    <TableCell className="font-medium">{row.label}</TableCell>
                     <TableCell className="text-right font-medium">
-                      {formatPrice(item.total)}
+                      {formatPrice(row.total)}
                     </TableCell>
                   </TableRow>
                 ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={2} className="py-8 text-center text-gray-500">
+                    No data available for the selected period
+                  </TableCell>
+                </TableRow>
               )}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+/* ---------- Small UI helpers ---------- */
+
+function SummaryCard({
+  title,
+  value,
+  subtitle,
+  icon,
+}: {
+  title: string;
+  value: string;
+  subtitle?: string;
+  icon?: React.ReactNode;
+}) {
+  return (
+    <Card className="overflow-hidden">
+      <div className="h-1 w-full bg-gradient-to-r from-emerald-400 via-blue-500 to-emerald-400" />
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-sm font-medium">{title}</CardTitle>
+          <div className="h-8 w-8 rounded-lg grid place-items-center bg-emerald-50 text-emerald-700">
+            {icon}
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="text-2xl font-bold">{value}</div>
+        {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
+      </CardContent>
+    </Card>
   );
 }

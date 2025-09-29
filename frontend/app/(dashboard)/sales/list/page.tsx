@@ -1,135 +1,242 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { toast } from "sonner";
+
 import { salesApi, Sale, medicineApi, Medicine } from "@/lib/api";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Eye, Download } from "lucide-react";
-import { toast } from "sonner";
-import Link from "next/link";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+
+import {
+  Search,
+  Eye,
+  Download,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
+
+/* ------------------------- Utils ------------------------- */
+
+const formatETB = (price: number) =>
+  new Intl.NumberFormat("en-ET", { style: "currency", currency: "ETB" }).format(
+    Number(price) || 0
+  );
+
+const formatDate = (dateString: string) =>
+  new Date(dateString).toLocaleDateString("en-ET");
+
+function getPageList(current: number, total: number) {
+  // Always show first & last; show neighbors around current; insert ellipses as needed
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+
+  const range: (number | "...")[] = [1];
+  const left = Math.max(2, current - 1);
+  const right = Math.min(total - 1, current + 1);
+
+  if (left > 2) range.push("...");
+  for (let i = left; i <= right; i++) range.push(i);
+  if (right < total - 1) range.push("...");
+  range.push(total);
+
+  return range;
+}
+
+/* ------------------------- Page ------------------------- */
 
 export default function SalesListPage() {
   const [sales, setSales] = useState<Sale[]>([]);
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [loading, setLoading] = useState(true);
+
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const itemsPerPage = 10;
 
   useEffect(() => {
-    loadData();
-  }, [currentPage]);
+    (async () => {
+      try {
+        const [allSales, meds] = await Promise.all([
+          salesApi.list(),
+          medicineApi.getAll({ page: 1, limit: 1000 }),
+        ]);
+        setSales(allSales || []);
+        setMedicines(meds.medicines || []);
+      } catch (e) {
+        console.error("Failed to load data:", e);
+        toast.error("Failed to load data");
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
 
-  const loadData = async () => {
-    try {
-      const [allSales, medicinesResponse] = await Promise.all([
-        salesApi.list(),
-        medicineApi.getAll({ page: 1, limit: 1000 })
-      ]);
-      setSales(allSales);
-      setMedicines(medicinesResponse.medicines || []);
-      setTotalPages(Math.ceil(allSales.length / itemsPerPage));
-    } catch (error) {
-      console.error("Failed to load data:", error);
-      toast.error("Failed to load data");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const filteredSales = sales.filter(sale =>
-    sale.saleNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    sale.customerName?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const paginatedSales = filteredSales.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
-
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('en-ET', {
-      style: 'currency',
-      currency: 'ETB'
-    }).format(price);
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-ET');
-  };
-
-  const getTotalItems = (sale: Sale) => {
-    return sale.items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
-  };
-
-  const getPaymentMethodBadge = (method: string) => {
-    const variants = {
-      cash: "default",
-      mobile_banking: "secondary",
-      telebirr: "outline"
-    } as const;
-
-    return (
-      <Badge variant={variants[method as keyof typeof variants] || "default"}>
-        {method.replace('_', ' ').toUpperCase()}
-      </Badge>
+  const filteredSales = useMemo(() => {
+    const q = searchTerm.toLowerCase().trim();
+    if (!q) return sales;
+    return sales.filter(
+      (s) =>
+        s.saleNumber.toLowerCase().includes(q) ||
+        s.customerName?.toLowerCase().includes(q)
     );
-  };
+  }, [sales, searchTerm]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredSales.length / itemsPerPage));
+  const pageList = getPageList(currentPage, totalPages);
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [totalPages, currentPage]);
+
+  const paginatedSales = useMemo(
+    () =>
+      filteredSales.slice(
+        (currentPage - 1) * itemsPerPage,
+        currentPage * itemsPerPage
+      ),
+    [filteredSales, currentPage]
+  );
+
+  const getTotalItems = (sale: Sale) =>
+    sale.items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
 
   const getMedicineName = (medicineId: number) => {
-    const medicine = medicines.find(m => m.id === medicineId);
-    if (medicine) {
-      return medicine.name;
-    }
-    
-    // Temporary hardcoded mapping for testing
-    const medicineNames: { [key: number]: string } = {
+    const m = medicines.find((mm) => mm.id === medicineId);
+    if (m) return m.name;
+
+    // Safe fallback (optional)
+    const fallback: Record<number, string> = {
       1: "Paracetamol 500mg",
-      2: "Aspirin 100mg", 
+      2: "Aspirin 100mg",
       3: "Ibuprofen 200mg",
       4: "Amoxicillin 250mg",
-      5: "Metformin 500mg"
+      5: "Metformin 500mg",
     };
-    
-    return medicineNames[medicineId] || `Medicine ID: ${medicineId}`;
+    return fallback[medicineId] ?? `Medicine ID: ${medicineId}`;
+  };
+
+  const paymentText = (sale: Sale) =>
+    (sale as any).paymentMethod || (sale as any).payment || "cash";
+
+  const PaymentBadge = ({ method }: { method: string }) => {
+    const norm = method.toLowerCase();
+    if (norm.includes("tele")) {
+      return <Badge variant="outline">Telebirr</Badge>;
+    }
+    if (norm.includes("mobile")) {
+      return <Badge variant="secondary">Mobile Banking</Badge>;
+    }
+    return <Badge variant="default">Cash</Badge>;
+  };
+
+  const handleExport = () => {
+    if (!filteredSales.length) {
+      toast.info("No sales to export");
+      return;
+    }
+    const headers = [
+      "SaleNumber",
+      "Date",
+      "Customer",
+      "Items",
+      "TotalAmount",
+      "Profit",
+      "PaymentMethod",
+    ];
+    const rows = filteredSales.map((s) => [
+      s.saleNumber,
+      formatDate(s.saleDate),
+      s.customerName || "Walk-in",
+      String(getTotalItems(s)),
+      String(Number(s.totalAmount) || 0),
+      String(s.calculatedProfit || 0),
+      paymentText(s),
+    ]);
+    const csv =
+      [headers, ...rows]
+        .map((r) =>
+          r
+            .map((v) => {
+              const val = String(v ?? "");
+              return /[",\n]/.test(val) ? `"${val.replace(/"/g, '""')}"` : val;
+            })
+            .join(",")
+        )
+        .join("\n") + "\n";
+
+    const blob = new Blob([csv], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "milkii-sales.csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success("Exported CSV");
   };
 
   return (
     <div className="container mx-auto p-6 space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Sales History</h1>
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Sales History</h1>
+          <p className="text-sm text-gray-500">
+            Browse, search, and review all completed sales.
+          </p>
+        </div>
         <div className="flex gap-2">
-          <Button variant="outline">
+          <Button variant="outline" onClick={handleExport}>
             <Download className="h-4 w-4 mr-2" />
-            Export
+            Export CSV
           </Button>
           <Link href="/sales">
-            <Button>
+            <Button className="bg-gradient-to-r from-emerald-500 to-blue-600 hover:from-emerald-600 hover:to-blue-700">
               New Sale
             </Button>
           </Link>
         </div>
       </div>
+      <div className="h-[3px] w-full bg-gradient-to-r from-emerald-400 via-blue-500 to-emerald-400 rounded-full" />
 
-      <div className="flex items-center space-x-2">
+      {/* Search */}
+      <div className="flex items-center">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search sales..."
+            placeholder="Search sales by number or customer…"
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => {
+              setCurrentPage(1);
+              setSearchTerm(e.target.value);
+            }}
             className="pl-8"
           />
         </div>
       </div>
 
-      <div className="rounded-md border">
+      {/* Table */}
+      <div className="rounded-md border overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow>
@@ -137,7 +244,7 @@ export default function SalesListPage() {
               <TableHead>Customer</TableHead>
               <TableHead>Items</TableHead>
               <TableHead>Total Amount</TableHead>
-              <TableHead>Payment Method</TableHead>
+              <TableHead>Payment</TableHead>
               <TableHead>Date</TableHead>
               <TableHead>Profit</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -146,41 +253,47 @@ export default function SalesListPage() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-gray-500">
-                  Loading sales...
+                <TableCell colSpan={8} className="text-center py-10 text-gray-500">
+                  Loading sales…
                 </TableCell>
               </TableRow>
             ) : paginatedSales.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-gray-500">
-                  No sales found.
+                <TableCell colSpan={8} className="text-center py-12">
+                  <div className="text-gray-700 font-medium">No sales found</div>
+                  <div className="text-gray-500 text-sm">
+                    Try adjusting your search or create a new sale.
+                  </div>
                 </TableCell>
               </TableRow>
             ) : (
               paginatedSales.map((sale) => (
                 <TableRow key={sale.id} className="hover:bg-gray-50">
                   <TableCell className="font-medium">{sale.saleNumber}</TableCell>
-                  <TableCell>{sale.customerName || 'Walk-in'}</TableCell>
+                  <TableCell>{sale.customerName || "Walk-in"}</TableCell>
                   <TableCell>
                     <span className="font-medium">{getTotalItems(sale)}</span>
                     {sale.items && sale.items.length > 0 && (
                       <div className="text-xs text-gray-500 mt-1">
-                        {sale.items.slice(0, 2).map(item => getMedicineName(item.medicineId)).join(', ')}
+                        {sale.items
+                          .slice(0, 2)
+                          .map((i) => getMedicineName(i.medicineId))
+                          .join(", ")}
                         {sale.items.length > 2 && ` +${sale.items.length - 2} more`}
                       </div>
                     )}
                   </TableCell>
                   <TableCell className="font-medium">
-                    {formatPrice(Number(sale.totalAmount))}
+                    {formatETB(Number(sale.totalAmount))}
                   </TableCell>
                   <TableCell>
-                    <Badge variant="default">Cash</Badge>
+                    <PaymentBadge method={paymentText(sale)} />
                   </TableCell>
                   <TableCell className="text-sm text-gray-500">
                     {formatDate(sale.saleDate)}
                   </TableCell>
-                  <TableCell className="text-green-600 font-medium">
-                    {formatPrice(sale.calculatedProfit || 0)}
+                  <TableCell className="text-emerald-700 font-medium">
+                    {formatETB(sale.calculatedProfit || 0)}
                   </TableCell>
                   <TableCell className="text-right">
                     <Dialog>
@@ -190,84 +303,86 @@ export default function SalesListPage() {
                           size="sm"
                           className="h-8 w-8 p-0"
                           title="View Details"
-                          onClick={() => setSelectedSale(sale)}
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
                       </DialogTrigger>
-                      <DialogContent>
+                      <DialogContent className="max-w-3xl">
                         <DialogHeader>
-                          <DialogTitle>Sale Details - {sale.saleNumber}</DialogTitle>
+                          <DialogTitle>Sale Details — {sale.saleNumber}</DialogTitle>
                         </DialogHeader>
-                        <div className="space-y-6">
-                          {/* Sale Info */}
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <label className="text-sm font-medium text-gray-500">Sale Number</label>
-                              <p className="font-medium">{sale.saleNumber}</p>
-                            </div>
-                            <div>
-                              <label className="text-sm font-medium text-gray-500">Date</label>
-                              <p>{formatDate(sale.saleDate)}</p>
-                            </div>
-                            <div>
-                              <label className="text-sm font-medium text-gray-500">Customer</label>
-                              <p>{sale.customerName || 'Walk-in Customer'}</p>
-                            </div>
-                            <div>
-                              <label className="text-sm font-medium text-gray-500">Total Amount</label>
-                              <p className="font-medium">{formatPrice(Number(sale.totalAmount))}</p>
-                            </div>
-                          </div>
 
-                          {/* Items */}
+                        {/* Sale Summary */}
+                        <div className="grid grid-cols-2 gap-4">
                           <div>
-                            <h4 className="font-medium mb-3">Items Sold</h4>
-                            <div className="border rounded-lg overflow-hidden">
-                              <Table>
-                                <TableHeader>
-                                  <TableRow>
-                                    <TableHead>Medicine</TableHead>
-                                    <TableHead className="text-center">Quantity</TableHead>
-                                    <TableHead className="text-right">Unit Price</TableHead>
-                                    <TableHead className="text-right">Total</TableHead>
-                                  </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                  {sale.items?.map((item, index) => (
-                                    <TableRow key={index}>
-                                      <TableCell className="font-medium">
-                                        {getMedicineName(item.medicineId)}
-                                      </TableCell>
-                                      <TableCell className="text-center">
-                                        {item.quantity}
-                                      </TableCell>
-                                      <TableCell className="text-right">
-                                        {formatPrice(item.unitPrice)}
-                                      </TableCell>
-                                      <TableCell className="text-right font-medium">
-                                        {formatPrice(item.unitPrice * item.quantity)}
-                                      </TableCell>
-                                    </TableRow>
-                                  ))}
-                                </TableBody>
-                              </Table>
+                            <div className="text-xs text-gray-500">Customer</div>
+                            <div className="font-medium">
+                              {sale.customerName || "Walk-in Customer"}
                             </div>
                           </div>
+                          <div>
+                            <div className="text-xs text-gray-500">Date</div>
+                            <div>{formatDate(sale.saleDate)}</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-gray-500">Total Amount</div>
+                            <div className="font-medium">
+                              {formatETB(Number(sale.totalAmount))}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-gray-500">Payment</div>
+                            <div className="flex items-center gap-2">
+                              <PaymentBadge method={paymentText(sale)} />
+                              <span className="text-xs text-gray-500">
+                                #{sale.saleNumber}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
 
-                          {/* Summary */}
-                          <div className="border-t pt-4">
-                            <div className="flex justify-between items-center text-lg font-bold">
-                              <span>Total Amount:</span>
-                              <span>{formatPrice(Number(sale.totalAmount))}</span>
-                            </div>
-                            {sale.calculatedProfit && (
-                              <div className="flex justify-between items-center text-green-600 mt-2">
-                                <span>Profit:</span>
-                                <span>{formatPrice(sale.calculatedProfit)}</span>
-                              </div>
-                            )}
+                        {/* Items */}
+                        <div className="mt-4 border rounded-lg overflow-hidden">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Medicine</TableHead>
+                                <TableHead className="text-center">Qty</TableHead>
+                                <TableHead className="text-right">Unit Price</TableHead>
+                                <TableHead className="text-right">Total</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {sale.items?.map((item, idx) => (
+                                <TableRow key={idx}>
+                                  <TableCell className="font-medium">
+                                    {getMedicineName(item.medicineId)}
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    {item.quantity}
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    {formatETB(Number(item.unitPrice))}
+                                  </TableCell>
+                                  <TableCell className="text-right font-medium">
+                                    {formatETB(Number(item.unitPrice) * item.quantity)}
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+
+                        {/* Totals */}
+                        <div className="pt-4 flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2">
+                          <div className="text-lg font-bold">
+                            Total:&nbsp;{formatETB(Number(sale.totalAmount))}
                           </div>
+                          {typeof sale.calculatedProfit === "number" && (
+                            <div className="text-emerald-700 font-semibold">
+                              Profit:&nbsp;{formatETB(sale.calculatedProfit)}
+                            </div>
+                          )}
                         </div>
                       </DialogContent>
                     </Dialog>
@@ -280,27 +395,61 @@ export default function SalesListPage() {
       </div>
 
       {/* Pagination */}
-      {Math.ceil(filteredSales.length / itemsPerPage) > 1 && (
-        <div className="flex justify-between items-center">
+      {totalPages > 1 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="text-sm text-gray-500">
-            Page {currentPage} of {Math.ceil(filteredSales.length / itemsPerPage)}
+            Showing{" "}
+            <span className="font-medium">
+              {(currentPage - 1) * itemsPerPage + 1}
+            </span>
+            –
+            <span className="font-medium">
+              {Math.min(currentPage * itemsPerPage, filteredSales.length)}
+            </span>{" "}
+            of <span className="font-medium">{filteredSales.length}</span>
           </div>
-          <div className="flex gap-2">
+
+          <div className="flex items-center gap-1">
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage === 1}
+              aria-label="Previous page"
             >
-              Previous
+              <ChevronLeft className="h-4 w-4" />
             </Button>
+
+            {pageList.map((p, idx) =>
+              p === "..." ? (
+                <span key={`e-${idx}`} className="px-2 text-gray-500">
+                  …
+                </span>
+              ) : (
+                <Button
+                  key={`p-${p}`}
+                  variant={p === currentPage ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setCurrentPage(p as number)}
+                  className={
+                    p === currentPage
+                      ? "bg-gradient-to-r from-emerald-500 to-blue-600 hover:from-emerald-600 hover:to-blue-700 text-white"
+                      : ""
+                  }
+                >
+                  {p}
+                </Button>
+              )
+            )}
+
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setCurrentPage(prev => Math.min(Math.ceil(filteredSales.length / itemsPerPage), prev + 1))}
-              disabled={currentPage === Math.ceil(filteredSales.length / itemsPerPage)}
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              aria-label="Next page"
             >
-              Next
+              <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
         </div>
