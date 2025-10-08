@@ -77,7 +77,7 @@ export function PublicNavbar() {
                 Sign in
               </Button>
             </Link>
-            <Link href="/register">
+            <Link href="/login">
               <Button size="sm">Get Started</Button>
             </Link>
           </div>

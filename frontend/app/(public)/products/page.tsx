@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
+
 import { medicineApi, Medicine } from "@/lib/api";
+
 import {
   Card,
   CardContent,
@@ -12,31 +15,66 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
 import { Search, ShoppingCart } from "lucide-react";
-import { toast } from "sonner";
+
+/* ------------------------- Helpers ------------------------- */
+
+const formatPrice = (price: number) =>
+  new Intl.NumberFormat("en-ET", {
+    style: "currency",
+    currency: "ETB",
+    maximumFractionDigits: 2,
+  }).format(Number(price) || 0);
+
+function stockPill(quantity: number) {
+  if (quantity <= 0)
+    return {
+      label: "Out of Stock",
+      cls: "bg-red-50 text-red-700 border-red-200",
+    } as const;
+  if (quantity <= 10)
+    return {
+      label: "Low Stock",
+      cls: "bg-amber-50 text-amber-700 border-amber-200",
+    } as const;
+  return {
+    label: "In Stock",
+    cls: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  } as const;
+}
+
+/* ------------------------- Page ------------------------- */
 
 export default function ProductsPage() {
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [loading, setLoading] = useState(true);
+
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
+  const [sortBy, setSortBy] = useState<"relevance" | "priceAsc" | "priceDesc" | "nameAsc">("relevance");
 
   useEffect(() => {
     loadMedicines();
   }, []);
 
   const loadMedicines = async () => {
+    setLoading(true);
     try {
       const response = await medicineApi.getAll({
         page: 1,
         limit: 1000,
         isActive: true,
       });
-      // Only show in-stock items
-      const inStockMedicines = response.medicines.filter(
-        (m) => (m.quantity ?? 0) > 0
-      );
-      setMedicines(inStockMedicines);
+      const inStock = (response.medicines || []).filter((m) => (m.quantity ?? 0) > 0);
+      setMedicines(inStock);
     } catch (error) {
       console.error("Failed to load medicines:", error);
       toast.error("Failed to load products");
@@ -56,38 +94,50 @@ export default function ProductsPage() {
     return ["All", ...names];
   }, [medicines]);
 
-  const filteredMedicines = useMemo(() => {
+  const categoryCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    medicines.forEach((m) => {
+      const key = m.category?.name || "Uncategorized";
+      counts.set(key, (counts.get(key) || 0) + 1);
+    });
+    return counts;
+  }, [medicines]);
+
+  const filtered = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
     return medicines.filter((m) => {
       const matchesTerm =
         !term ||
         m.name.toLowerCase().includes(term) ||
         m.category?.name?.toLowerCase().includes(term);
-      const matchesCat =
-        selectedCategory === "All" ||
-        m.category?.name === selectedCategory;
+      const matchesCat = selectedCategory === "All" || m.category?.name === selectedCategory;
       return matchesTerm && matchesCat;
     });
   }, [medicines, searchTerm, selectedCategory]);
 
-  const formatPrice = (price: number) =>
-    new Intl.NumberFormat("en-ET", {
-      style: "currency",
-      currency: "ETB",
-      maximumFractionDigits: 2,
-    }).format(price);
-
-  const getStockStatus = (quantity: number) => {
-    if (quantity <= 0)
-      return { label: "Out of Stock", variant: "destructive" as const };
-    if (quantity <= 10)
-      return { label: "Low Stock", variant: "secondary" as const };
-    return { label: "In Stock", variant: "default" as const };
-  };
+  const sorted = useMemo(() => {
+    const arr = [...filtered];
+    switch (sortBy) {
+      case "priceAsc":
+        return arr.sort((a, b) => Number(a.sellingPrice) - Number(b.sellingPrice));
+      case "priceDesc":
+        return arr.sort((a, b) => Number(b.sellingPrice) - Number(a.sellingPrice));
+      case "nameAsc":
+        return arr.sort((a, b) => a.name.localeCompare(b.name));
+      default:
+        return arr; // relevance = current order
+    }
+  }, [filtered, sortBy]);
 
   const handleAddToCart = (medicine: Medicine) => {
     toast.success(`${medicine.name} added to cart`);
-    // TODO: Hook into real cart
+    // TODO: integrate real cart
+  };
+
+  const clearFilters = () => {
+    setSearchTerm("");
+    setSelectedCategory("All");
+    setSortBy("relevance");
   };
 
   return (
@@ -99,13 +149,14 @@ export default function ProductsPage() {
             Veterinary Drugs & Agri Inputs
           </h1>
           <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-            All items shown are currently <span className="font-medium">in stock</span> and ready for order.
+            All items shown are currently{" "}
+            <span className="font-medium">in stock</span> and ready for order.
           </p>
         </div>
 
-        {/* Search */}
-        <div className="mb-6">
-          <div className="relative max-w-2xl mx-auto">
+        {/* Toolbar */}
+        <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="relative w-full md:max-w-xl">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
             <Input
               placeholder="Search by product or category…"
@@ -114,14 +165,38 @@ export default function ProductsPage() {
               className="pl-10"
             />
           </div>
+
+          <div className="flex items-center gap-2">
+            <Select value={sortBy} onValueChange={(v: typeof sortBy) => setSortBy(v)}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Sort" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="relevance">Sort: Relevance</SelectItem>
+                <SelectItem value="priceAsc">Price: Low → High</SelectItem>
+                <SelectItem value="priceDesc">Price: High → Low</SelectItem>
+                <SelectItem value="nameAsc">Name: A → Z</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {(searchTerm || selectedCategory !== "All" || sortBy !== "relevance") && (
+              <Button variant="outline" onClick={clearFilters}>
+                Clear
+              </Button>
+            )}
+          </div>
         </div>
 
-        {/* Category chips (optional) */}
+        {/* Category chips */}
         {categories.length > 1 && (
           <div className="mb-8 overflow-x-auto">
             <div className="flex gap-2 w-max">
               {categories.map((c) => {
                 const active = selectedCategory === c;
+                const count =
+                  c === "All"
+                    ? medicines.length
+                    : categoryCounts.get(c) ?? 0;
                 return (
                   <Button
                     key={c}
@@ -130,11 +205,11 @@ export default function ProductsPage() {
                     onClick={() => setSelectedCategory(c)}
                     className={
                       active
-                        ? "bg-blue-600 hover:bg-blue-700"
-                        : "border-blue-200 text-blue-700 hover:bg-blue-50"
+                        ? "bg-gradient-to-r from-emerald-500 to-blue-600 hover:from-emerald-600 hover:to-blue-700"
+                        : "border-emerald-200 text-emerald-700 hover:bg-emerald-50"
                     }
                   >
-                    {c}
+                    {c} {count ? `(${count})` : ""}
                   </Button>
                 );
               })}
@@ -142,16 +217,20 @@ export default function ProductsPage() {
           </div>
         )}
 
-        {/* Grid */}
+        {/* Result count */}
         <div className="mb-4 flex items-center justify-between">
           {!loading && (
             <h2 className="text-sm text-gray-500">
-              Showing <span className="font-medium text-gray-700">{filteredMedicines.length}</span>{" "}
-              {filteredMedicines.length === 1 ? "item" : "items"}
+              Showing{" "}
+              <span className="font-medium text-gray-700">
+                {sorted.length}
+              </span>{" "}
+              {sorted.length === 1 ? "item" : "items"}
             </h2>
           )}
         </div>
 
+        {/* Grid */}
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {Array.from({ length: 8 }).map((_, i) => (
@@ -169,49 +248,41 @@ export default function ProductsPage() {
               </Card>
             ))}
           </div>
-        ) : filteredMedicines.length > 0 ? (
+        ) : sorted.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredMedicines.map((medicine) => {
-              const stockStatus = getStockStatus(medicine.quantity);
+            {sorted.map((m) => {
+              const s = stockPill(m.quantity);
               return (
-                <Card
-                  key={medicine.id}
-                  className="hover:shadow-lg transition-shadow overflow-hidden"
-                >
-                  {/* Gradient accent */}
+                <Card key={m.id} className="hover:shadow-lg transition-shadow overflow-hidden">
                   <div className="h-1 w-full bg-gradient-to-r from-emerald-400 via-blue-500 to-emerald-400" />
                   <CardHeader className="pb-3">
                     <div className="flex justify-between items-start mb-2">
-                      <Badge variant={stockStatus.variant} className="text-xs">
-                        {stockStatus.label}
-                      </Badge>
-                      {medicine.category?.name && (
-                        <Badge variant="outline" className="text-xs">
-                          {medicine.category.name}
+                      <Badge className={`text-xs border ${s.cls}`}>{s.label}</Badge>
+                      {m.category?.name && (
+                        <Badge variant="outline" className="text-xs border-emerald-200 text-emerald-700">
+                          {m.category.name}
                         </Badge>
                       )}
                     </div>
-                    <CardTitle className="text-lg line-clamp-2">
-                      {medicine.name}
-                    </CardTitle>
+                    <CardTitle className="text-lg line-clamp-2">{m.name}</CardTitle>
                     <CardDescription className="text-sm">
-                      Quantity: {medicine.quantity} units
+                      Quantity: {m.quantity} units
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="pt-0">
                     <div className="space-y-3">
                       <div className="flex items-baseline justify-between">
                         <span className="text-2xl font-extrabold text-blue-700">
-                          {formatPrice(medicine.sellingPrice)}
+                          {formatPrice(m.sellingPrice)}
                         </span>
                       </div>
                       <Button
-                        className="w-full"
-                        onClick={() => handleAddToCart(medicine)}
-                        disabled={medicine.quantity <= 0}
+                        className="w-full bg-gradient-to-r from-emerald-500 to-blue-600 hover:from-emerald-600 hover:to-blue-700"
+                        onClick={() => handleAddToCart(m)}
+                        disabled={m.quantity <= 0}
                       >
                         <ShoppingCart className="h-4 w-4 mr-2" />
-                        {medicine.quantity <= 0 ? "Out of Stock" : "Add to Cart"}
+                        {m.quantity <= 0 ? "Out of Stock" : "Add to Cart"}
                       </Button>
                     </div>
                   </CardContent>
@@ -224,9 +295,7 @@ export default function ProductsPage() {
             <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-gray-100 flex items-center justify-center">
               <Search className="h-7 w-7 text-gray-400" />
             </div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">
-              No products found
-            </h3>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">No products found</h3>
             <p className="text-gray-600">
               {searchTerm
                 ? "Try adjusting your search or clear the category filter."
