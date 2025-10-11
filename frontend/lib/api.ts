@@ -359,6 +359,7 @@ export interface InventoryItem {
   medicineId: number;
   batchNumber: string;
   quantity: number;
+  unitPrice?: number;
   sellingPrice: number;
   expiryDate: string;
   supplierId?: number;
