@@ -46,7 +46,6 @@ import {
   CommandSeparator,
 } from "@/components/ui/command";
 import { Switch } from "@/components/ui/switch";
-import { Separator } from "@/components/ui/separator";
 
 import {
   Plus,
@@ -135,6 +134,7 @@ export default function SalesPage() {
 
   /* ------------------------- Derived ------------------------- */
 
+  // Unique category options (include "Uncategorized" if any)
   const categoryOptions = useMemo(() => {
     const set = new Set<string>();
     let hasUncat = false;
@@ -327,6 +327,7 @@ export default function SalesPage() {
       await salesApi.create(payload);
       toast.success(`Sale completed! Payment: ${paymentMethod}`);
 
+      // Refresh medicines (stock changed)
       const mRes = await medicineApi.getAll({
         page: 1,
         limit: 5000,
@@ -334,6 +335,7 @@ export default function SalesPage() {
       });
       setMedicines(mRes.medicines || []);
 
+      // Reset
       setSaleItems([]);
       setSelectedCustomer(null);
       setCustomerName("");
@@ -356,29 +358,33 @@ export default function SalesPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">New Sale</h1>
       </div>
-      <Separator />
+      {/* Top gradient accent */}
+      <div className="h-[3px] w-full bg-gradient-to-r from-emerald-400 via-blue-500 to-emerald-400 rounded-full" />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Medicines */}
+        {/* Medicines (Picker) */}
         <Card className="lg:col-span-2 overflow-hidden">
+          {/* Card gradient accent */}
+          <div className="h-1 w-full bg-gradient-to-r from-emerald-400 via-blue-500 to-emerald-400" />
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center justify-between">
               <span className="flex items-center gap-2">
-                <Package className="h-5 w-5 text-primary" />
+                <Package className="h-5 w-5 text-emerald-600" />
                 Select Medicines
               </span>
 
-              <span className="text-xs text-muted-foreground flex items-center gap-2">
+              {/* Small filter summary with themed chip look */}
+              <span className="text-xs flex items-center gap-2 rounded-md px-2 py-1 ring-1 ring-emerald-200 bg-emerald-50 text-emerald-700">
                 <Filter className="h-3.5 w-3.5" />
                 {onlyInStock ? "In-stock" : "All"} · {categoryFilter === "all" ? "All categories" : categoryFilter}
               </span>
             </CardTitle>
 
-            {/* Top controls */}
+            {/* Top controls: barcode + quick filters */}
             <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-2">
               {/* Barcode quick add */}
               <div className="relative">
-                <Barcode className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Barcode className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-emerald-700" />
                 <Input
                   placeholder="Scan/Paste barcode and press Enter"
                   value={barcode}
@@ -386,13 +392,13 @@ export default function SalesPage() {
                   onKeyDown={(e) => {
                     if (e.key === "Enter") onBarcodeSubmit();
                   }}
-                  className="pl-9"
+                  className="pl-9 focus-visible:ring-emerald-500"
                 />
               </div>
 
               {/* Category filter */}
               <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger>
+                <SelectTrigger className="focus:ring-emerald-500">
                   <SelectValue placeholder="Category" />
                 </SelectTrigger>
                 <SelectContent className="max-h-72">
@@ -406,8 +412,8 @@ export default function SalesPage() {
               </Select>
 
               {/* In-stock toggle */}
-              <div className="flex items-center justify-between md:justify-start gap-3 rounded-lg border p-2">
-                <div className="text-sm text-muted-foreground">Only in stock</div>
+              <div className="flex items-center justify-between md:justify-start gap-3 rounded-lg border p-2 bg-gradient-to-r from-emerald-50 to-blue-50">
+                <div className="text-sm text-emerald-800">Only in stock</div>
                 <Switch checked={onlyInStock} onCheckedChange={setOnlyInStock} />
               </div>
             </div>
@@ -419,16 +425,17 @@ export default function SalesPage() {
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
-                  className="w-full justify-start text-left font-normal"
+                  className="w-full justify-start text-left font-normal hover:border-emerald-300"
                   onClick={() => setOpenPicker(true)}
                 >
-                  <SearchIcon className="mr-2 h-4 w-4" />
+                  <SearchIcon className="mr-2 h-4 w-4 text-emerald-700" />
                   <span className="text-muted-foreground">
                     Search and add medicines…
                   </span>
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="p-0 w-[min(700px,95vw)]" align="start">
+                <div className="h-[3px] w-full bg-gradient-to-r from-emerald-400 via-blue-500 to-emerald-400" />
                 <Command shouldFilter={false}>
                   <CommandInput
                     placeholder="Type to search by name, barcode, or category…"
@@ -446,23 +453,27 @@ export default function SalesPage() {
                           <CommandItem
                             key={m.id}
                             value={`${m.id}`}
-                            onSelect={() => {
-                              addMedicineToSale(m);
-                            }}
+                            onSelect={() => addMedicineToSale(m)}
                             className="flex items-center justify-between gap-3"
                           >
                             <div className="min-w-0">
                               <div className="font-medium truncate">{m.name}</div>
-                              <div className="text-xs text-muted-foreground truncate">
+                              <div className="text-xs text-gray-500 truncate">
                                 {category} • {formatETB(Number(m.sellingPrice))} •{" "}
-                                <span className={low ? "text-destructive font-medium" : "text-primary font-medium"}>
+                                <span
+                                  className={
+                                    low
+                                      ? "text-amber-700 font-medium"
+                                      : "text-emerald-700 font-medium"
+                                  }
+                                >
                                   Stock: {m.quantity}
                                 </span>
                               </div>
                             </div>
                             <Button
                               size="sm"
-                              className="h-7"
+                              className="h-7 bg-gradient-to-r from-emerald-500 to-blue-600 hover:from-emerald-600 hover:to-blue-700"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 addMedicineToSale(m);
@@ -478,7 +489,7 @@ export default function SalesPage() {
                     {filteredMedicines.length === 200 && (
                       <>
                         <CommandSeparator />
-                        <div className="px-3 py-2 text-xs text-muted-foreground">
+                        <div className="px-3 py-2 text-xs text-gray-500">
                           Showing first 200 results. Refine your search to narrow down.
                         </div>
                       </>
@@ -488,15 +499,15 @@ export default function SalesPage() {
               </PopoverContent>
             </Popover>
 
-            <div className="mt-2 text-xs text-muted-foreground">
-              Tip: Press <kbd className="px-1 py-0.5 border rounded">/</kbd> to focus search,{" "}
-              <kbd className="px-1 py-0.5 border rounded">Enter</kbd> to add highlighted item.
+            {/* Helper note */}
+            <div className="mt-2 text-xs text-gray-500">
+              Tip: Press <kbd className="px-1 py-0.5 bg-gray-100 border rounded">/</kbd> to focus search, <kbd className="px-1 py-0.5 bg-gray-100 border rounded">Enter</kbd> to add highlighted item.
             </div>
 
-            {/* Optional list */}
-            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3 max-h-80 overflow-auto rounded-md border p-2">
+            {/* Fallback list */}
+            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3 max-h-80 overflow-auto rounded-md border p-2 bg-white">
               {filteredMedicines.length === 0 ? (
-                <div className="col-span-full text-center py-8 text-muted-foreground">
+                <div className="col-span-full text-center py-8 text-gray-500">
                   No medicines match your filters.
                 </div>
               ) : (
@@ -507,9 +518,15 @@ export default function SalesPage() {
                   >
                     <div className="flex-1 min-w-0">
                       <div className="font-medium truncate">{m.name}</div>
-                      <div className="text-xs text-muted-foreground">
+                      <div className="text-xs text-gray-500">
                         {m.category?.name || "—"} • {formatETB(Number(m.sellingPrice))} •{" "}
-                        <span className={m.quantity <= 10 ? "text-destructive font-medium" : "text-primary font-medium"}>
+                        <span
+                          className={
+                            m.quantity <= 10
+                              ? "text-amber-700 font-medium"
+                              : "text-emerald-700 font-medium"
+                          }
+                        >
                           Stock: {m.quantity}
                         </span>
                       </div>
@@ -518,7 +535,7 @@ export default function SalesPage() {
                       size="sm"
                       onClick={() => addMedicineToSale(m)}
                       disabled={m.quantity === 0}
-                      className="ml-2"
+                      className="ml-2 bg-gradient-to-r from-emerald-500 to-blue-600 hover:from-emerald-600 hover:to-blue-700"
                     >
                       <Plus className="h-4 w-4" />
                     </Button>
@@ -531,9 +548,10 @@ export default function SalesPage() {
 
         {/* Customer + Cart */}
         <Card className="overflow-hidden">
+          <div className="h-1 w-full bg-gradient-to-r from-emerald-400 via-blue-500 to-emerald-400" />
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center">
-              <User className="h-5 w-5 mr-2 text-primary" />
+              <User className="h-5 w-5 mr-2 text-blue-600" />
               Customer
             </CardTitle>
           </CardHeader>
@@ -546,7 +564,7 @@ export default function SalesPage() {
                   value={selectedCustomer ? String(selectedCustomer.id) : "walk-in"}
                   onValueChange={handleCustomerSelect}
                 >
-                  <SelectTrigger className="flex-1">
+                  <SelectTrigger className="flex-1 focus:ring-emerald-500">
                     <SelectValue placeholder="Select or search customer" />
                   </SelectTrigger>
                   <SelectContent className="max-h-72">
@@ -561,7 +579,7 @@ export default function SalesPage() {
                             setCustomerName("");
                           }
                         }}
-                        className="h-8"
+                        className="h-8 focus-visible:ring-emerald-500"
                       />
                     </div>
                     <SelectItem value="walk-in">Walk-in Customer</SelectItem>
@@ -576,12 +594,13 @@ export default function SalesPage() {
                 {/* New customer */}
                 <Dialog open={newCustomerModalOpen} onOpenChange={setNewCustomerModalOpen}>
                   <DialogTrigger asChild>
-                    <Button variant="outline" size="sm">
+                    <Button variant="outline" size="sm" className="hover:border-emerald-300">
                       <Plus className="h-4 w-4 mr-1" />
                       New
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="sm:max-w-[430px]">
+                    <div className="h-[3px] w-full bg-gradient-to-r from-emerald-400 via-blue-500 to-emerald-400 rounded-full" />
                     <DialogHeader>
                       <DialogTitle>Add New Customer</DialogTitle>
                     </DialogHeader>
@@ -595,6 +614,7 @@ export default function SalesPage() {
                             setNewCustomerForm({ ...newCustomerForm, name: e.target.value })
                           }
                           required
+                          className="focus-visible:ring-emerald-500"
                         />
                       </div>
                       <div className="space-y-2">
@@ -606,6 +626,7 @@ export default function SalesPage() {
                           onChange={(e) =>
                             setNewCustomerForm({ ...newCustomerForm, email: e.target.value })
                           }
+                          className="focus-visible:ring-emerald-500"
                         />
                       </div>
                       <div className="space-y-2">
@@ -616,6 +637,7 @@ export default function SalesPage() {
                           onChange={(e) =>
                             setNewCustomerForm({ ...newCustomerForm, phone: e.target.value })
                           }
+                          className="focus-visible:ring-emerald-500"
                         />
                       </div>
                       <div className="space-y-2">
@@ -627,9 +649,15 @@ export default function SalesPage() {
                             setNewCustomerForm({ ...newCustomerForm, address: e.target.value })
                           }
                           rows={3}
+                          className="focus-visible:ring-emerald-500"
                         />
                       </div>
-                      <Button type="submit">Create Customer</Button>
+                      <Button
+                        type="submit"
+                        className="bg-gradient-to-r from-emerald-500 to-blue-600 hover:from-emerald-600 hover:to-blue-700"
+                      >
+                        Create Customer
+                      </Button>
                     </form>
                   </DialogContent>
                 </Dialog>
@@ -639,6 +667,7 @@ export default function SalesPage() {
                 placeholder="Or type customer name manually"
                 value={customerName}
                 onChange={(e) => handleCustomerNameChange(e.target.value)}
+                className="focus-visible:ring-emerald-500"
               />
             </div>
 
@@ -646,7 +675,7 @@ export default function SalesPage() {
             <div className="space-y-2">
               <Label className="text-sm">Payment Method</Label>
               <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                <SelectTrigger>
+                <SelectTrigger className="focus:ring-emerald-500">
                   <SelectValue placeholder="Select payment method" />
                 </SelectTrigger>
                 <SelectContent>
@@ -661,7 +690,7 @@ export default function SalesPage() {
             {saleItems.length > 0 && (
               <div className="space-y-4 pt-4 border-t">
                 <h4 className="font-medium flex items-center">
-                  <ShoppingCart className="h-4 w-4 mr-2" />
+                  <ShoppingCart className="h-4 w-4 mr-2 text-emerald-700" />
                   Cart ({saleItems.length} items)
                 </h4>
 
@@ -669,11 +698,11 @@ export default function SalesPage() {
                   {saleItems.map((it) => (
                     <div
                       key={it.medicineId}
-                      className="flex items-center justify-between p-2 border rounded text-sm"
+                      className="flex items-center justify-between p-2 border rounded text-sm bg-white"
                     >
                       <div className="flex-1 min-w-0">
                         <div className="font-medium truncate">{it.medicine?.name}</div>
-                        <div className="text-xs text-muted-foreground">
+                        <div className="text-xs text-gray-500">
                           {formatETB(it.unitPrice)} each
                         </div>
                       </div>
@@ -683,7 +712,7 @@ export default function SalesPage() {
                           <Button
                             size="sm"
                             variant="outline"
-                            className="h-6 w-6 p-0"
+                            className="h-6 w-6 p-0 hover:border-emerald-300"
                             onClick={() => updateItemQuantity(it.medicineId, it.quantity - 1)}
                             disabled={it.quantity <= 1}
                             aria-label="Decrease"
@@ -694,7 +723,7 @@ export default function SalesPage() {
                           <Button
                             size="sm"
                             variant="outline"
-                            className="h-6 w-6 p-0"
+                            className="h-6 w-6 p-0 hover:border-emerald-300"
                             onClick={() => updateItemQuantity(it.medicineId, it.quantity + 1)}
                             disabled={it.quantity >= (it.medicine?.quantity || 0)}
                             aria-label="Increase"
@@ -724,10 +753,12 @@ export default function SalesPage() {
                 <div className="border-t pt-2">
                   <div className="flex justify-between items-center">
                     <span className="font-bold">Total:</span>
-                    <span className="text-lg font-bold">{formatETB(totalAmount)}</span>
+                    <span className="text-lg font-bold text-emerald-700">
+                      {formatETB(totalAmount)}
+                    </span>
                   </div>
                   <Button
-                    className="w-full mt-2"
+                    className="w-full mt-2 bg-gradient-to-r from-emerald-500 to-blue-600 hover:from-emerald-600 hover:to-blue-700"
                     onClick={processSale}
                     disabled={loading}
                   >

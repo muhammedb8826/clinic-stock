@@ -133,17 +133,28 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
     <Sidebar collapsible="offcanvas" {...props}>
       {/* Header / Brand */}
       <SidebarHeader>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild className="data-[slot=sidebar-menu-button]:!p-1.5">
-              <a href="#">
-                <IconInnerShadowTop className="!size-5" />
-                <span className="text-base font-semibold">Damina Tech</span>
-              </a>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarHeader>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
+                className="data-[slot=sidebar-menu-button]:!p-1.5 hover:bg-transparent"
+              >
+                <a href="/dashboard" aria-label="Damina Tech">
+                  <div className="flex items-center gap-2">
+                    {/* Logo mark */}
+                    <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-emerald-500 to-blue-600 grid place-items-center text-white shadow-sm ring-1 ring-emerald-300/40">
+                      <IconInnerShadowTop className="size-4" />
+                    </div>
+                    {/* Brand text */}
+                    <span className="text-lg font-extrabold tracking-tight text-emerald-600">
+                      Waan <span className="text-emerald-700">Ofii</span>
+                    </span>
+                  </div>
+                </a>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarHeader>
 
       {/* Content */}
       <SidebarContent>
