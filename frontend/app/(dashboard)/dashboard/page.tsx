@@ -349,59 +349,6 @@ export default function DashboardPage() {
           )}
         </CardContent>
       </Card>
-
-      {/* All Sales */}
-      <Card>
-        <CardHeader>
-          <CardTitle>All Sales</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Sale #</TableHead>
-                <TableHead>Customer</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-                <TableHead className="text-right">Profit</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {getCurrentPageItems(stats.recentSales || [], allSalesPage).map((sale: Sale) => (
-                <TableRow key={sale.id}>
-                  <TableCell className="font-medium">{sale.saleNumber}</TableCell>
-                  <TableCell>{sale.customerName || "Walk-in"}</TableCell>
-                  <TableCell>{formatDate(sale.saleDate)}</TableCell>
-                  <TableCell className="text-right">{formatPrice(Number(sale.totalAmount))}</TableCell>
-                  <TableCell className="text-right">
-                    <ProfitBadge value={sale.calculatedProfit ?? 0} />
-                  </TableCell>
-                </TableRow>
-              ))}
-              {!stats.recentSales?.length && (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center text-gray-500">
-                    No sales available
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-
-          {getTotalPages(stats.recentSales || []) > 1 && (
-            <Pager
-              page={allSalesPage}
-              totalPages={getTotalPages(stats.recentSales || [])}
-              onPrev={() => setAllSalesPage((p) => Math.max(1, p - 1))}
-              onNext={() =>
-                setAllSalesPage((p) =>
-                  Math.min(getTotalPages(stats.recentSales || []), p + 1)
-                )
-              }
-            />
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 }

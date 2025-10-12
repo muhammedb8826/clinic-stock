@@ -103,10 +103,7 @@ export default function PurchaseOrdersPage() {
       {/* Page header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Purchase Orders</h1>
-          <p className="text-sm text-gray-500">
-            Track supplier orders, receipts, and status changes.
-          </p>
+          <h1 className="text-3xl font-bold tracking-tight">Purchases</h1>
         </div>
         <Link href="/purchase-orders/create">
           <Button className="bg-gradient-to-r from-emerald-500 to-blue-600 hover:from-emerald-600 hover:to-blue-700">

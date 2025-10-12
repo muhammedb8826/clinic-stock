@@ -41,9 +41,7 @@ import {
   RefreshCcw,
   Download,
   Barcode,
-  AlertTriangle,
   Package,
-  Calendar,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
@@ -107,7 +105,6 @@ function getPageNumbers(totalPages: number, current: number, siblingCount = 1): 
   for (let p = left; p <= right; p++) pages.push(p);
   if (showRightEllipsis) pages.push("…");
   pages.push(totalPages);
-  // Also ensure page 2 is included when close to start
   if (!showLeftEllipsis && left === 2) pages.splice(1, 0, 2);
   return pages;
 }
@@ -121,6 +118,7 @@ export default function MedicinesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [stockFilter, setStockFilter] = useState<"all" | "in" | "low" | "out">("all");
   const [expiryFilter, setExpiryFilter] = useState<"all" | "good" | "soon" | "expired">("all");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
 
   const [page, setPage] = useState(1);
 
@@ -148,10 +146,25 @@ export default function MedicinesPage() {
     loadMedicines();
   }, [loadMedicines]);
 
+  // Options for Category filter (built from current data)
+  const categoryOptions = useMemo(() => {
+    const set = new Set<string>();
+    let hasUncategorized = false;
+
+    for (const m of medicines) {
+      const name = m.category?.name?.trim();
+      if (name) set.add(name);
+      else hasUncategorized = true;
+    }
+    const arr = Array.from(set).sort((a, b) => a.localeCompare(b));
+    if (hasUncategorized) arr.unshift("Uncategorized");
+    return arr;
+  }, [medicines]);
+
   // Reset to first page when filters or search change
   useEffect(() => {
     setPage(1);
-  }, [searchTerm, stockFilter, expiryFilter]);
+  }, [searchTerm, stockFilter, expiryFilter, categoryFilter]);
 
   const filteredMedicines = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
@@ -178,8 +191,13 @@ export default function MedicinesPage() {
         if (expiryFilter === "soon") return d >= 0 && d <= 30;
         if (expiryFilter === "good") return d > 30;
         return true;
+      })
+      .filter((m) => {
+        if (categoryFilter === "all") return true;
+        const name = m.category?.name?.trim() || "Uncategorized";
+        return name === categoryFilter;
       });
-  }, [medicines, searchTerm, stockFilter, expiryFilter]);
+  }, [medicines, searchTerm, stockFilter, expiryFilter, categoryFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filteredMedicines.length / PAGE_SIZE));
 
@@ -303,9 +321,6 @@ export default function MedicinesPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Medicines</h1>
-          <p className="text-sm text-gray-500">
-            Manage inventory, pricing, and expiry for agri-vet products.
-          </p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={handleExport} disabled={!filteredMedicines.length}>
@@ -345,7 +360,8 @@ export default function MedicinesPage() {
         <div className="h-1 w-full bg-gradient-to-r from-emerald-400 via-blue-500 to-emerald-400" />
         <CardContent>
           <CardTitle className="text-sm font-medium">Filters</CardTitle>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            {/* Search */}
             <div className="relative">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
@@ -356,6 +372,7 @@ export default function MedicinesPage() {
               />
             </div>
 
+            {/* Stock */}
             <div className="space-y-1">
               <label className="text-xs font-medium text-gray-600">Stock</label>
               <Select value={stockFilter} onValueChange={(v: any) => setStockFilter(v)}>
@@ -371,6 +388,7 @@ export default function MedicinesPage() {
               </Select>
             </div>
 
+            {/* Expiry */}
             <div className="space-y-1">
               <label className="text-xs font-medium text-gray-600">Expiry</label>
               <Select value={expiryFilter} onValueChange={(v: any) => setExpiryFilter(v)}>
@@ -386,6 +404,25 @@ export default function MedicinesPage() {
               </Select>
             </div>
 
+            {/* Category (NEW) */}
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-gray-600">Category</label>
+              <Select value={categoryFilter} onValueChange={(v) => setCategoryFilter(v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  {categoryOptions.map((name) => (
+                    <SelectItem key={name} value={name}>
+                      {name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Clear */}
             <div className="flex items-end">
               <Button
                 variant="outline"
@@ -393,6 +430,7 @@ export default function MedicinesPage() {
                   setSearchTerm("");
                   setStockFilter("all");
                   setExpiryFilter("all");
+                  setCategoryFilter("all");
                 }}
               >
                 Clear

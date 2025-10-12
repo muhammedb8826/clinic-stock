@@ -33,6 +33,15 @@ import {
   ChevronRight,
 } from "lucide-react";
 
+/* NEW: shadcn select for Range & Payment */
+import {
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from "@/components/ui/select";
+
 /* ------------------------- Utils ------------------------- */
 
 const formatETB = (price: number) =>
@@ -43,20 +52,74 @@ const formatETB = (price: number) =>
 const formatDate = (dateString: string) =>
   new Date(dateString).toLocaleDateString("en-ET");
 
-function getPageList(current: number, total: number) {
-  // Always show first & last; show neighbors around current; insert ellipses as needed
-  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+/* time helpers (local time; week = Mon–Sun) */
+const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+const endOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
 
-  const range: (number | "...")[] = [1];
-  const left = Math.max(2, current - 1);
-  const right = Math.min(total - 1, current + 1);
+const startOfWeek = (d: Date) => {
+  const day = d.getDay(); // 0 Sun ... 6 Sat
+  const diff = (day === 0 ? -6 : 1) - day; // move to Monday
+  const s = new Date(d);
+  s.setDate(d.getDate() + diff);
+  return startOfDay(s);
+};
+const endOfWeek = (d: Date) => {
+  const s = startOfWeek(d);
+  const e = new Date(s);
+  e.setDate(s.getDate() + 6);
+  return endOfDay(e);
+};
+const startOfMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0);
+const endOfMonth = (d: Date) => endOfDay(new Date(d.getFullYear(), d.getMonth() + 1, 0));
+const startOfYear = (d: Date) => new Date(d.getFullYear(), 0, 1, 0, 0, 0, 0);
+const endOfYear = (d: Date) => endOfDay(new Date(d.getFullYear(), 11, 31));
 
-  if (left > 2) range.push("...");
-  for (let i = left; i <= right; i++) range.push(i);
-  if (right < total - 1) range.push("...");
-  range.push(total);
+type RangeKey =
+  | "all"
+  | "today"
+  | "yesterday"
+  | "this_week"
+  | "last_week"
+  | "this_month"
+  | "this_year"
+  | "custom";
 
-  return range;
+function getRangeDates(range: RangeKey, customStart?: string, customEnd?: string) {
+  const now = new Date();
+  switch (range) {
+    case "today": {
+      const s = startOfDay(now);
+      const e = endOfDay(now);
+      return { s, e };
+    }
+    case "yesterday": {
+      const y = new Date(now);
+      y.setDate(now.getDate() - 1);
+      return { s: startOfDay(y), e: endOfDay(y) };
+    }
+    case "this_week": {
+      return { s: startOfWeek(now), e: endOfWeek(now) };
+    }
+    case "last_week": {
+      const lastWeekAnchor = new Date(now);
+      lastWeekAnchor.setDate(now.getDate() - 7);
+      return { s: startOfWeek(lastWeekAnchor), e: endOfWeek(lastWeekAnchor) };
+    }
+    case "this_month": {
+      return { s: startOfMonth(now), e: endOfMonth(now) };
+    }
+    case "this_year": {
+      return { s: startOfYear(now), e: endOfYear(now) };
+    }
+    case "custom": {
+      if (!customStart && !customEnd) return { s: undefined, e: undefined };
+      const s = customStart ? startOfDay(new Date(customStart)) : undefined;
+      const e = customEnd ? endOfDay(new Date(customEnd)) : undefined;
+      return { s, e };
+    }
+    default:
+      return { s: undefined, e: undefined };
+  }
 }
 
 /* ------------------------- Page ------------------------- */
@@ -69,6 +132,12 @@ export default function SalesListPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+
+  /* NEW: filter state */
+  const [range, setRange] = useState<RangeKey>("all");
+  const [customStart, setCustomStart] = useState<string>("");
+  const [customEnd, setCustomEnd] = useState<string>("");
+  const [paymentFilter, setPaymentFilter] = useState<"all" | "cash" | "telebirr" | "mobile">("all");
 
   useEffect(() => {
     (async () => {
@@ -88,19 +157,46 @@ export default function SalesListPage() {
     })();
   }, []);
 
+  /* utility */
+  const paymentText = (sale: Sale) =>
+    (sale as any).paymentMethod || (sale as any).payment || "cash";
+
+  const normalizePayment = (val: string) => {
+    const v = (val || "").toLowerCase();
+    if (v.includes("tele")) return "telebirr";
+    if (v.includes("mobile")) return "mobile";
+    return "cash";
+  };
+
+  /* apply Search + Date range + Payment filter */
   const filteredSales = useMemo(() => {
     const q = searchTerm.toLowerCase().trim();
-    if (!q) return sales;
-    return sales.filter(
-      (s) =>
-        s.saleNumber.toLowerCase().includes(q) ||
-        s.customerName?.toLowerCase().includes(q)
-    );
-  }, [sales, searchTerm]);
+    const { s, e } = getRangeDates(range, customStart, customEnd);
 
+    return sales.filter((sale) => {
+      /* search */
+      const matchesSearch =
+        !q ||
+        sale.saleNumber.toLowerCase().includes(q) ||
+        sale.customerName?.toLowerCase().includes(q);
+
+      /* date */
+      const saleDate = new Date(sale.saleDate);
+      const inRange =
+        range === "all" ||
+        ((s ? saleDate >= s : true) && (e ? saleDate <= e : true));
+
+      /* payment */
+      const normalized = normalizePayment(paymentText(sale));
+      const matchesPayment =
+        paymentFilter === "all" || paymentFilter === normalized;
+
+      return matchesSearch && inRange && matchesPayment;
+    });
+  }, [sales, searchTerm, range, customStart, customEnd, paymentFilter]);
+
+  /* pagination keep in sync */
   const totalPages = Math.max(1, Math.ceil(filteredSales.length / itemsPerPage));
-  const pageList = getPageList(currentPage, totalPages);
-
   useEffect(() => {
     if (currentPage > totalPages) setCurrentPage(totalPages);
   }, [totalPages, currentPage]);
@@ -120,8 +216,6 @@ export default function SalesListPage() {
   const getMedicineName = (medicineId: number) => {
     const m = medicines.find((mm) => mm.id === medicineId);
     if (m) return m.name;
-
-    // Safe fallback (optional)
     const fallback: Record<number, string> = {
       1: "Paracetamol 500mg",
       2: "Aspirin 100mg",
@@ -132,20 +226,14 @@ export default function SalesListPage() {
     return fallback[medicineId] ?? `Medicine ID: ${medicineId}`;
   };
 
-  const paymentText = (sale: Sale) =>
-    (sale as any).paymentMethod || (sale as any).payment || "cash";
-
   const PaymentBadge = ({ method }: { method: string }) => {
     const norm = method.toLowerCase();
-    if (norm.includes("tele")) {
-      return <Badge variant="outline">Telebirr</Badge>;
-    }
-    if (norm.includes("mobile")) {
-      return <Badge variant="secondary">Mobile Banking</Badge>;
-    }
+    if (norm.includes("tele")) return <Badge variant="outline">Telebirr</Badge>;
+    if (norm.includes("mobile")) return <Badge variant="secondary">Mobile Banking</Badge>;
     return <Badge variant="default">Cash</Badge>;
   };
 
+  /* Export respects current filters (filteredSales) */
   const handleExport = () => {
     if (!filteredSales.length) {
       toast.info("No sales to export");
@@ -181,9 +269,7 @@ export default function SalesListPage() {
         )
         .join("\n") + "\n";
 
-    const blob = new Blob([csv], {
-      type: "text/csv;charset=utf-8;",
-    });
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -195,15 +281,26 @@ export default function SalesListPage() {
     toast.success("Exported CSV");
   };
 
+  /* page list helper (unchanged) */
+  function getPageList(current: number, total: number) {
+    if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+    const range: (number | "...")[] = [1];
+    const left = Math.max(2, current - 1);
+    const right = Math.min(total - 1, current + 1);
+    if (left > 2) range.push("...");
+    for (let i = left; i <= right; i++) range.push(i);
+    if (right < total - 1) range.push("...");
+    range.push(total);
+    return range;
+  }
+  const pageList = getPageList(currentPage, totalPages);
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Sales History</h1>
-          <p className="text-sm text-gray-500">
-            Browse, search, and review all completed sales.
-          </p>
+          <h1 className="text-3xl font-bold tracking-tight">Sales</h1>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={handleExport}>
@@ -219,10 +316,88 @@ export default function SalesListPage() {
       </div>
       <div className="h-[3px] w-full bg-gradient-to-r from-emerald-400 via-blue-500 to-emerald-400 rounded-full" />
 
-      {/* Search */}
-      <div className="flex items-center">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+      {/* Filters + Search */}
+      <div className="flex flex-col lg:flex-row gap-3 lg:items-end">
+        {/* Range */}
+        <div className="w-full sm:w-56">
+          <div className="text-xs text-gray-500 mb-1">Range</div>
+          <Select
+            value={range}
+            onValueChange={(val: RangeKey) => {
+              setRange(val);
+              setCurrentPage(1);
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select range" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="today">Today</SelectItem>
+              <SelectItem value="yesterday">Yesterday</SelectItem>
+              <SelectItem value="this_week">This Week</SelectItem>
+              <SelectItem value="last_week">Last Week</SelectItem>
+              <SelectItem value="this_month">This Month</SelectItem>
+              <SelectItem value="this_year">This Year</SelectItem>
+              <SelectItem value="custom">Custom</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Custom Dates (only used when range === custom) */}
+        <div className="flex gap-3 w-full sm:w-auto">
+          <div className="w-full sm:w-48">
+            <div className="text-xs text-gray-500 mb-1">Start</div>
+            <Input
+              type="date"
+              value={customStart}
+              onChange={(e) => {
+                setCustomStart(e.target.value);
+                setCurrentPage(1);
+              }}
+              disabled={range !== "custom"}
+            />
+          </div>
+          <div className="w-full sm:w-48">
+            <div className="text-xs text-gray-500 mb-1">End</div>
+            <Input
+              type="date"
+              value={customEnd}
+              onChange={(e) => {
+                setCustomEnd(e.target.value);
+                setCurrentPage(1);
+              }}
+              disabled={range !== "custom"}
+            />
+          </div>
+        </div>
+
+        {/* Payment */}
+        <div className="w-full sm:w-56">
+          <div className="text-xs text-gray-500 mb-1">Payment Method</div>
+          <Select
+            value={paymentFilter}
+            onValueChange={(val: "all" | "cash" | "telebirr" | "mobile") => {
+              setPaymentFilter(val);
+              setCurrentPage(1);
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="All methods" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="cash">Cash</SelectItem>
+              <SelectItem value="telebirr">Telebirr</SelectItem>
+              <SelectItem value="mobile">Mobile Banking</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Search */}
+        <div className="relative flex-1 min-w-[220px]">
+          <div className="text-xs text-gray-500 mb-1">Search</div>
+          <Search className="absolute left-2 top-9 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search sales by number or customer…"
             value={searchTerm}
@@ -262,7 +437,7 @@ export default function SalesListPage() {
                 <TableCell colSpan={8} className="text-center py-12">
                   <div className="text-gray-700 font-medium">No sales found</div>
                   <div className="text-gray-500 text-sm">
-                    Try adjusting your search or create a new sale.
+                    Try adjusting filters or search.
                   </div>
                 </TableCell>
               </TableRow>

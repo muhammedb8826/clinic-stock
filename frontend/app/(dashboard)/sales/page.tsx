@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import {
   medicineApi,
   Medicine,
@@ -35,7 +35,18 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+} from "@/components/ui/command";
+import { Switch } from "@/components/ui/switch";
+import { Separator } from "@/components/ui/separator";
 
 import {
   Plus,
@@ -44,6 +55,8 @@ import {
   User,
   Search as SearchIcon,
   Package,
+  Barcode,
+  Filter,
 } from "lucide-react";
 
 /* ------------------------- Types ------------------------- */
@@ -62,6 +75,14 @@ const formatETB = (price: number) =>
   new Intl.NumberFormat("en-ET", { style: "currency", currency: "ETB" }).format(
     Number(price) || 0
   );
+
+const debounce = (fn: (...args: any[]) => void, ms = 200) => {
+  let t: any;
+  return (...args: any[]) => {
+    clearTimeout(t);
+    t = setTimeout(() => fn(...args), ms);
+  };
+};
 
 /* ------------------------- Page ------------------------- */
 
@@ -88,8 +109,12 @@ export default function SalesPage() {
   // Items
   const [saleItems, setSaleItems] = useState<SaleItem[]>([]);
 
-  // Search
-  const [medicineSearchTerm, setMedicineSearchTerm] = useState("");
+  // Medicines search/filters
+  const [medicineQuery, setMedicineQuery] = useState("");
+  const [onlyInStock, setOnlyInStock] = useState(true);
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [openPicker, setOpenPicker] = useState(false);
+  const [barcode, setBarcode] = useState("");
 
   /* ------------------------- Data Load ------------------------- */
 
@@ -97,7 +122,7 @@ export default function SalesPage() {
     (async () => {
       try {
         const [mRes, cRes] = await Promise.all([
-          medicineApi.getAll({ page: 1, limit: 1000, isActive: true }),
+          medicineApi.getAll({ page: 1, limit: 5000, isActive: true }),
           customerApi.list(),
         ]);
         setMedicines(mRes.medicines || []);
@@ -110,15 +135,55 @@ export default function SalesPage() {
 
   /* ------------------------- Derived ------------------------- */
 
-  const filteredMedicines = useMemo(
-    () =>
-      medicines.filter(
+  const categoryOptions = useMemo(() => {
+    const set = new Set<string>();
+    let hasUncat = false;
+    for (const m of medicines) {
+      const n = m.category?.name?.trim();
+      if (n) set.add(n);
+      else hasUncat = true;
+    }
+    const arr = Array.from(set).sort((a, b) => a.localeCompare(b));
+    if (hasUncat) arr.unshift("Uncategorized");
+    return arr;
+  }, [medicines]);
+
+  // Debounced client-side search
+  const [internalQuery, setInternalQuery] = useState("");
+  const debouncedSet = useRef(
+    debounce((v: string) => setInternalQuery(v), 200)
+  ).current;
+
+  useEffect(() => {
+    debouncedSet(medicineQuery);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [medicineQuery]);
+
+  const filteredMedicines = useMemo(() => {
+    const q = internalQuery.trim().toLowerCase();
+
+    let list = medicines;
+
+    if (onlyInStock) list = list.filter((m) => m.quantity > 0);
+
+    if (categoryFilter !== "all") {
+      list = list.filter((m) => {
+        const name = m.category?.name?.trim() || "Uncategorized";
+        return name === categoryFilter;
+      });
+    }
+
+    if (q) {
+      list = list.filter(
         (m) =>
-          m.quantity > 0 &&
-          m.name.toLowerCase().includes(medicineSearchTerm.toLowerCase())
-      ),
-    [medicines, medicineSearchTerm]
-  );
+          m.name.toLowerCase().includes(q) ||
+          m.barcode?.toLowerCase().includes(q) ||
+          m.category?.name?.toLowerCase().includes(q)
+      );
+    }
+
+    return list.slice(0, 200);
+  }, [medicines, internalQuery, onlyInStock, categoryFilter]);
 
   const filteredCustomers = useMemo(
     () =>
@@ -161,6 +226,7 @@ export default function SalesPage() {
         medicine,
       },
     ]);
+    toast.success(`Added: ${medicine.name}`);
   };
 
   const updateItemQuantity = (medicineId: number, quantity: number) => {
@@ -223,6 +289,19 @@ export default function SalesPage() {
     }
   };
 
+  // Barcode add (paste/scan then Enter)
+  const onBarcodeSubmit = () => {
+    const q = barcode.trim().toLowerCase();
+    if (!q) return;
+    const found = medicines.find((m) => (m.barcode || "").toLowerCase() === q);
+    if (!found) {
+      toast.error("No medicine with this barcode");
+      return;
+    }
+    addMedicineToSale(found);
+    setBarcode("");
+  };
+
   const processSale = async () => {
     if (saleItems.length === 0) {
       toast.error("Please add items to the sale");
@@ -248,20 +327,20 @@ export default function SalesPage() {
       await salesApi.create(payload);
       toast.success(`Sale completed! Payment: ${paymentMethod}`);
 
-      // Refresh medicines (stock changed)
       const mRes = await medicineApi.getAll({
         page: 1,
-        limit: 1000,
+        limit: 5000,
         isActive: true,
       });
       setMedicines(mRes.medicines || []);
 
-      // Reset
       setSaleItems([]);
       setSelectedCustomer(null);
       setCustomerName("");
       setCustomerSearchTerm("");
       setPaymentMethod("cash");
+      setMedicineQuery("");
+      setInternalQuery("");
     } catch {
       toast.error("Failed to process sale");
     } finally {
@@ -276,90 +355,185 @@ export default function SalesPage() {
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold tracking-tight">New Sale</h1>
-        <p className="text-sm text-gray-500">
-          Add items, choose customer, and complete checkout.
-        </p>
       </div>
-      <div className="h-[3px] w-full bg-gradient-to-r from-emerald-400 via-blue-500 to-emerald-400 rounded-full" />
+      <Separator />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Medicines */}
         <Card className="lg:col-span-2 overflow-hidden">
-          <div className="h-1 w-full bg-gradient-to-r from-emerald-400 via-blue-500 to-emerald-400" />
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center justify-between">
               <span className="flex items-center gap-2">
-                <Package className="h-5 w-5 text-emerald-600" />
+                <Package className="h-5 w-5 text-primary" />
                 Select Medicines
               </span>
+
+              <span className="text-xs text-muted-foreground flex items-center gap-2">
+                <Filter className="h-3.5 w-3.5" />
+                {onlyInStock ? "In-stock" : "All"} · {categoryFilter === "all" ? "All categories" : categoryFilter}
+              </span>
             </CardTitle>
-            <div className="relative mt-3">
-              <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search medicines…"
-                value={medicineSearchTerm}
-                onChange={(e) => setMedicineSearchTerm(e.target.value)}
-                className="pl-9"
-              />
+
+            {/* Top controls */}
+            <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-2">
+              {/* Barcode quick add */}
+              <div className="relative">
+                <Barcode className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Scan/Paste barcode and press Enter"
+                  value={barcode}
+                  onChange={(e) => setBarcode(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") onBarcodeSubmit();
+                  }}
+                  className="pl-9"
+                />
+              </div>
+
+              {/* Category filter */}
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Category" />
+                </SelectTrigger>
+                <SelectContent className="max-h-72">
+                  <SelectItem value="all">All categories</SelectItem>
+                  {categoryOptions.map((name) => (
+                    <SelectItem key={name} value={name}>
+                      {name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {/* In-stock toggle */}
+              <div className="flex items-center justify-between md:justify-start gap-3 rounded-lg border p-2">
+                <div className="text-sm text-muted-foreground">Only in stock</div>
+                <Switch checked={onlyInStock} onCheckedChange={setOnlyInStock} />
+              </div>
             </div>
           </CardHeader>
 
           <CardContent>
-            {filteredMedicines.length === 0 ? (
-              <div className="text-center py-12 text-gray-500">
-                No medicines found. Adjust your search.
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-96 overflow-auto">
-                {filteredMedicines.map((m) => (
+            {/* Combobox / Command palette */}
+            <Popover open={openPicker} onOpenChange={setOpenPicker}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start text-left font-normal"
+                  onClick={() => setOpenPicker(true)}
+                >
+                  <SearchIcon className="mr-2 h-4 w-4" />
+                  <span className="text-muted-foreground">
+                    Search and add medicines…
+                  </span>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="p-0 w-[min(700px,95vw)]" align="start">
+                <Command shouldFilter={false}>
+                  <CommandInput
+                    placeholder="Type to search by name, barcode, or category…"
+                    value={medicineQuery}
+                    onValueChange={setMedicineQuery}
+                  />
+                  <CommandList className="max-h-[50vh]">
+                    <CommandEmpty>No results found.</CommandEmpty>
+
+                    <CommandGroup heading="Results">
+                      {filteredMedicines.map((m) => {
+                        const low = m.quantity <= 10;
+                        const category = m.category?.name || "—";
+                        return (
+                          <CommandItem
+                            key={m.id}
+                            value={`${m.id}`}
+                            onSelect={() => {
+                              addMedicineToSale(m);
+                            }}
+                            className="flex items-center justify-between gap-3"
+                          >
+                            <div className="min-w-0">
+                              <div className="font-medium truncate">{m.name}</div>
+                              <div className="text-xs text-muted-foreground truncate">
+                                {category} • {formatETB(Number(m.sellingPrice))} •{" "}
+                                <span className={low ? "text-destructive font-medium" : "text-primary font-medium"}>
+                                  Stock: {m.quantity}
+                                </span>
+                              </div>
+                            </div>
+                            <Button
+                              size="sm"
+                              className="h-7"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                addMedicineToSale(m);
+                              }}
+                            >
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                          </CommandItem>
+                        );
+                      })}
+                    </CommandGroup>
+
+                    {filteredMedicines.length === 200 && (
+                      <>
+                        <CommandSeparator />
+                        <div className="px-3 py-2 text-xs text-muted-foreground">
+                          Showing first 200 results. Refine your search to narrow down.
+                        </div>
+                      </>
+                    )}
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+
+            <div className="mt-2 text-xs text-muted-foreground">
+              Tip: Press <kbd className="px-1 py-0.5 border rounded">/</kbd> to focus search,{" "}
+              <kbd className="px-1 py-0.5 border rounded">Enter</kbd> to add highlighted item.
+            </div>
+
+            {/* Optional list */}
+            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3 max-h-80 overflow-auto rounded-md border p-2">
+              {filteredMedicines.length === 0 ? (
+                <div className="col-span-full text-center py-8 text-muted-foreground">
+                  No medicines match your filters.
+                </div>
+              ) : (
+                filteredMedicines.map((m) => (
                   <div
                     key={m.id}
-                    className="flex items-center justify-between p-3 border rounded-lg bg-white hover:shadow-sm"
+                    className="flex items-center justify-between p-3 border rounded-lg hover:shadow-sm"
                   >
                     <div className="flex-1 min-w-0">
                       <div className="font-medium truncate">{m.name}</div>
-                      <div className="text-xs text-gray-500">
-                        Stock:{" "}
-                        <span
-                          className={
-                            m.quantity <= 10
-                              ? "text-amber-700 font-medium"
-                              : "text-emerald-700 font-medium"
-                          }
-                        >
-                          {m.quantity}
-                        </span>{" "}
-                        • {formatETB(Number(m.sellingPrice))}
+                      <div className="text-xs text-muted-foreground">
+                        {m.category?.name || "—"} • {formatETB(Number(m.sellingPrice))} •{" "}
+                        <span className={m.quantity <= 10 ? "text-destructive font-medium" : "text-primary font-medium"}>
+                          Stock: {m.quantity}
+                        </span>
                       </div>
-                      {m.category?.name && (
-                        <div className="mt-1">
-                          <Badge variant="outline" className="text-xs">
-                            {m.category.name}
-                          </Badge>
-                        </div>
-                      )}
                     </div>
                     <Button
                       size="sm"
                       onClick={() => addMedicineToSale(m)}
                       disabled={m.quantity === 0}
-                      className="bg-gradient-to-r from-emerald-500 to-blue-600 hover:from-emerald-600 hover:to-blue-700"
+                      className="ml-2"
                     >
                       <Plus className="h-4 w-4" />
                     </Button>
                   </div>
-                ))}
-              </div>
-            )}
+                ))
+              )}
+            </div>
           </CardContent>
         </Card>
 
         {/* Customer + Cart */}
         <Card className="overflow-hidden">
-          <div className="h-1 w-full bg-gradient-to-r from-emerald-400 via-blue-500 to-emerald-400" />
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center">
-              <User className="h-5 w-5 mr-2 text-blue-600" />
+              <User className="h-5 w-5 mr-2 text-primary" />
               Customer
             </CardTitle>
           </CardHeader>
@@ -455,12 +629,7 @@ export default function SalesPage() {
                           rows={3}
                         />
                       </div>
-                      <Button
-                        type="submit"
-                        className="bg-gradient-to-r from-emerald-500 to-blue-600 hover:from-emerald-600 hover:to-blue-700"
-                      >
-                        Create Customer
-                      </Button>
+                      <Button type="submit">Create Customer</Button>
                     </form>
                   </DialogContent>
                 </Dialog>
@@ -500,11 +669,11 @@ export default function SalesPage() {
                   {saleItems.map((it) => (
                     <div
                       key={it.medicineId}
-                      className="flex items-center justify-between p-2 border rounded text-sm bg-white"
+                      className="flex items-center justify-between p-2 border rounded text-sm"
                     >
                       <div className="flex-1 min-w-0">
                         <div className="font-medium truncate">{it.medicine?.name}</div>
-                        <div className="text-xs text-gray-500">
+                        <div className="text-xs text-muted-foreground">
                           {formatETB(it.unitPrice)} each
                         </div>
                       </div>
@@ -558,7 +727,7 @@ export default function SalesPage() {
                     <span className="text-lg font-bold">{formatETB(totalAmount)}</span>
                   </div>
                   <Button
-                    className="w-full mt-2 bg-gradient-to-r from-emerald-500 to-blue-600 hover:from-emerald-600 hover:to-blue-700"
+                    className="w-full mt-2"
                     onClick={processSale}
                     disabled={loading}
                   >

@@ -179,9 +179,6 @@ export default function CreatePurchaseOrderPage() {
         </Button>
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Create Purchase Order</h1>
-          <p className="text-sm text-gray-500">
-            Choose a supplier and add items to draft a new PO.
-          </p>
         </div>
       </div>
       {/* subtle theme underline */}
