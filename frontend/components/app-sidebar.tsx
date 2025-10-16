@@ -17,6 +17,7 @@ import {
   IconChevronDown,
   IconChevronRight,
   IconCoin,
+  IconBell,
 } from "@tabler/icons-react";
 
 import { NavUser } from "@/components/nav-user";
@@ -72,6 +73,7 @@ const data = {
           ],
         },
         { title: "Costs", url: "/costs", icon: IconCoin },
+        { title: "Notifications", url: "/notifications", icon: IconBell },
         { title: "Customers", url: "/customers", icon: IconUsers },
         { title: "Suppliers", url: "/suppliers", icon: IconUsers },
         { title: "Users", url: "/users", icon: IconUsers },
@@ -79,6 +81,8 @@ const data = {
     },
   ],
   navSecondary: [
+    { title: "Settings", url: "/settings", icon: IconSettings },
+    { title: "Help", url: "/help", icon: IconHelp },
   ],
 };
 

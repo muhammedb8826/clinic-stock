@@ -3,7 +3,7 @@ import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { PurchaseOrdersService } from './purchase-orders.service';
 import { CreatePurchaseOrderDto } from './dto/create-purchase-order.dto';
 import { ReceivePurchaseOrderDto } from './dto/receive-purchase-order.dto';
-import { PurchaseOrder } from './entities/purchase-order.entity';
+import { PurchaseOrder, PaymentStatus } from './entities/purchase-order.entity';
 import { UpdatePurchaseOrderStatusDto } from './dto/update-status.dto';
 
 @ApiTags('purchase-orders')
@@ -49,7 +49,13 @@ export class PurchaseOrdersController {
   @Patch(':id/status')
   @ApiOperation({ summary: 'Update purchase order status' })
   updateStatus(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdatePurchaseOrderStatusDto) {
-    return this.service.updateStatus(id, dto.status);
+    return this.service.updateStatus(id, dto.status, dto.invoiceNumber);
+  }
+
+  @Patch(':id/payment-status')
+  @ApiOperation({ summary: 'Update purchase order payment status' })
+  updatePaymentStatus(@Param('id', ParseIntPipe) id: number, @Body() dto: { paymentStatus: PaymentStatus }) {
+    return this.service.updatePaymentStatus(id, dto.paymentStatus);
   }
 }
 

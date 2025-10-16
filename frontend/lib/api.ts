@@ -145,6 +145,11 @@ export const medicineApi = {
     await api.delete(`/medicines/${id}`);
   },
 
+  // Soft delete medicine (deactivate)
+  softDelete: async (id: number): Promise<void> => {
+    await api.patch(`/medicines/${id}/deactivate`);
+  },
+
   // Get medicine by barcode
   getByBarcode: async (barcode: string): Promise<Medicine> => {
     const response = await api.get(`/medicines/barcode/${barcode}`);
@@ -328,6 +333,11 @@ export enum PurchaseOrderStatus {
   CANCELLED = 'cancelled',
 }
 
+export enum PaymentStatus {
+  UNPAID = 'unpaid',
+  PAID = 'paid',
+}
+
 export interface PurchaseOrderItemDto {
   medicineId: number;
   quantity: number;
@@ -336,8 +346,10 @@ export interface PurchaseOrderItemDto {
 export interface CreatePurchaseOrderDto {
   supplierId: number;
   status?: PurchaseOrderStatus;
+  paymentStatus?: PaymentStatus;
   orderDate: string; // ISO
   expectedDeliveryDate?: string; // ISO
+  invoiceNumber?: string;
   notes?: string;
   items: PurchaseOrderItemDto[];
 }
@@ -353,10 +365,13 @@ export interface PurchaseOrder {
   id: number;
   orderNumber: string;
   supplierId: number;
+  supplier?: Supplier;
   status: PurchaseOrderStatus;
+  paymentStatus: PaymentStatus;
   orderDate: string;
   expectedDeliveryDate?: string;
   receivedDate?: string;
+  invoiceNumber?: string;
   notes?: string;
   items: PurchaseOrderItem[];
   createdAt: string;
@@ -391,8 +406,12 @@ export const purchaseOrderApi = {
     const res = await api.post(`/purchase-orders/${id}/receive`, data);
     return res.data;
   },
-  updateStatus: async (id: number, status: PurchaseOrderStatus): Promise<PurchaseOrder> => {
-    const res = await api.patch(`/purchase-orders/${id}/status`, { status });
+  updateStatus: async (id: number, status: PurchaseOrderStatus, invoiceNumber?: string): Promise<PurchaseOrder> => {
+    const res = await api.patch(`/purchase-orders/${id}/status`, { status, invoiceNumber });
+    return res.data;
+  },
+  updatePaymentStatus: async (id: number, paymentStatus: PaymentStatus): Promise<PurchaseOrder> => {
+    const res = await api.patch(`/purchase-orders/${id}/payment-status`, { paymentStatus });
     return res.data;
   },
 };

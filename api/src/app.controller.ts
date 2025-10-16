@@ -19,4 +19,9 @@ export class AppController {
       environment: process.env.NODE_ENV || 'development',
     };
   }
+
+  @Get('test-notifications')
+  testNotifications() {
+    return { message: 'Notifications test endpoint', timestamp: new Date().toISOString() };
+  }
 }

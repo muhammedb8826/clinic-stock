@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { PurchaseOrder, PurchaseOrderStatus } from './entities/purchase-order.entity';
+import { PurchaseOrder, PurchaseOrderStatus, PaymentStatus } from './entities/purchase-order.entity';
 import { PurchaseOrderItem } from './entities/purchase-order-item.entity';
 import { CreatePurchaseOrderDto } from './dto/create-purchase-order.dto';
 import { ReceivePurchaseOrderDto } from './dto/receive-purchase-order.dto';
@@ -25,8 +25,10 @@ export class PurchaseOrdersService {
       orderNumber: this.generateOrderNumber(),
       supplierId: dto.supplierId,
       status: dto.status ?? PurchaseOrderStatus.DRAFT,
+      paymentStatus: dto.paymentStatus ?? PaymentStatus.UNPAID,
       orderDate: new Date(dto.orderDate),
       expectedDeliveryDate: dto.expectedDeliveryDate ? new Date(dto.expectedDeliveryDate) : undefined,
+      invoiceNumber: dto.invoiceNumber,
       notes: dto.notes,
     });
 
@@ -134,7 +136,7 @@ export class PurchaseOrdersService {
     return this.poRepo.save(po);
   }
 
-  async updateStatus(id: number, status: PurchaseOrderStatus): Promise<PurchaseOrder> {
+  async updateStatus(id: number, status: PurchaseOrderStatus, invoiceNumber?: string): Promise<PurchaseOrder> {
     const po = await this.poRepo.findOne({ where: { id }, relations: { items: true } });
     if (!po) throw new NotFoundException('Purchase order not found');
     if (po.status === PurchaseOrderStatus.RECEIVED && status !== PurchaseOrderStatus.RECEIVED) {
@@ -162,10 +164,21 @@ export class PurchaseOrdersService {
       
       po.status = PurchaseOrderStatus.RECEIVED;
       po.receivedDate = new Date();
+      if (invoiceNumber) {
+        po.invoiceNumber = invoiceNumber;
+      }
       return this.poRepo.save(po);
     }
     
     po.status = status;
+    return this.poRepo.save(po);
+  }
+
+  async updatePaymentStatus(id: number, paymentStatus: PaymentStatus): Promise<PurchaseOrder> {
+    const po = await this.poRepo.findOne({ where: { id } });
+    if (!po) throw new NotFoundException('Purchase order not found');
+    
+    po.paymentStatus = paymentStatus;
     return this.poRepo.save(po);
   }
 }

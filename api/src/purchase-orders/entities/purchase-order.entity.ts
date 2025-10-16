@@ -10,6 +10,11 @@ export enum PurchaseOrderStatus {
   CANCELLED = 'cancelled',
 }
 
+export enum PaymentStatus {
+  UNPAID = 'unpaid',
+  PAID = 'paid',
+}
+
 @Entity('purchase_orders')
 export class PurchaseOrder {
   @ApiProperty()
@@ -32,6 +37,10 @@ export class PurchaseOrder {
   @Column({ type: 'enum', enum: PurchaseOrderStatus, default: PurchaseOrderStatus.DRAFT })
   status: PurchaseOrderStatus;
 
+  @ApiProperty({ enum: PaymentStatus })
+  @Column({ type: 'enum', enum: PaymentStatus, default: PaymentStatus.UNPAID })
+  paymentStatus: PaymentStatus;
+
   @ApiProperty()
   @Column({ type: 'date' })
   orderDate: Date;
@@ -43,6 +52,10 @@ export class PurchaseOrder {
   @ApiPropertyOptional()
   @Column({ type: 'date', nullable: true })
   receivedDate?: Date;
+
+  @ApiPropertyOptional()
+  @Column({ nullable: true })
+  invoiceNumber?: string;
 
   @ApiPropertyOptional()
   @Column({ type: 'text', nullable: true })

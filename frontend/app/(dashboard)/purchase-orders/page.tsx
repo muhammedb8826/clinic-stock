@@ -6,6 +6,7 @@ import {
   purchaseOrderApi,
   PurchaseOrder,
   PurchaseOrderStatus,
+  PaymentStatus,
 } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +28,8 @@ import {
 } from "@/components/ui/select";
 import { Plus, Search, Eye } from "lucide-react";
 import { toast } from "sonner";
+import { PurchaseOrderModal } from "@/components/purchase-order-modal";
+import { InvoicePrompt } from "@/components/invoice-prompt";
 
 /* ---------- helpers ---------- */
 
@@ -51,6 +54,17 @@ const statusChip = (status: PurchaseOrderStatus) => {
   }
 };
 
+const paymentStatusChip = (status: PaymentStatus) => {
+  switch (status) {
+    case PaymentStatus.PAID:
+      return "border-green-200 bg-green-50 text-green-700";
+    case PaymentStatus.UNPAID:
+      return "border-orange-200 bg-orange-50 text-orange-700";
+    default:
+      return "border-gray-200 bg-gray-50 text-gray-700";
+  }
+};
+
 export default function PurchaseOrdersPage() {
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -58,6 +72,10 @@ export default function PurchaseOrdersPage() {
   const [statusFilter, setStatusFilter] = useState<PurchaseOrderStatus | "all">(
     "all"
   );
+  const [selectedOrder, setSelectedOrder] = useState<PurchaseOrder | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isInvoicePromptOpen, setIsInvoicePromptOpen] = useState(false);
+  const [orderToReceive, setOrderToReceive] = useState<PurchaseOrder | null>(null);
 
   useEffect(() => {
     loadPurchaseOrders();
@@ -87,12 +105,61 @@ export default function PurchaseOrdersPage() {
     }
   };
 
+  const handleStatusUpdateWithInvoice = async (id: number, status: PurchaseOrderStatus, invoiceNumber?: string) => {
+    try {
+      await purchaseOrderApi.updateStatus(id, status, invoiceNumber);
+      toast.success("Purchase order status updated");
+      loadPurchaseOrders();
+    } catch (error) {
+      console.error("Failed to update status:", error);
+      toast.error("Failed to update purchase order status");
+    }
+  };
+
+  const handlePaymentStatusUpdate = async (id: number, paymentStatus: PaymentStatus) => {
+    try {
+      await purchaseOrderApi.updatePaymentStatus(id, paymentStatus);
+      toast.success("Payment status updated");
+      loadPurchaseOrders();
+    } catch (error) {
+      console.error("Failed to update payment status:", error);
+      toast.error("Failed to update payment status");
+    }
+  };
+
+  const handleViewDetails = (order: PurchaseOrder) => {
+    setSelectedOrder(order);
+    setIsModalOpen(true);
+  };
+
+  const handleStatusChange = (order: PurchaseOrder, newStatus: PurchaseOrderStatus) => {
+    if (newStatus === PurchaseOrderStatus.RECEIVED && order.status !== PurchaseOrderStatus.RECEIVED) {
+      setOrderToReceive(order);
+      setIsInvoicePromptOpen(true);
+    } else if (newStatus === PurchaseOrderStatus.CANCELLED) {
+      if (confirm("Are you sure you want to cancel this order?")) {
+        handleStatusUpdate(order.id, newStatus);
+      }
+    } else {
+      handleStatusUpdate(order.id, newStatus);
+    }
+  };
+
+  const handleInvoiceConfirm = (invoiceNumber?: string) => {
+    if (orderToReceive) {
+      handleStatusUpdateWithInvoice(orderToReceive.id, PurchaseOrderStatus.RECEIVED, invoiceNumber);
+    }
+    setIsInvoicePromptOpen(false);
+    setOrderToReceive(null);
+  };
+
   const filteredPurchaseOrders = purchaseOrders.filter((order) => {
     const q = searchTerm.trim().toLowerCase();
     const matchesSearch =
       !q ||
       order.orderNumber.toLowerCase().includes(q) ||
       order.notes?.toLowerCase().includes(q) ||
+      order.supplier?.name.toLowerCase().includes(q) ||
       String(order.supplierId).toLowerCase().includes(q);
     const matchesStatus = statusFilter === "all" || order.status === statusFilter;
     return matchesSearch && matchesStatus;
@@ -120,7 +187,7 @@ export default function PurchaseOrdersPage() {
         <div className="relative flex-1 max-w-sm">
           <Search className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search order #, supplier, notes…"
+            placeholder="Search order #, supplier name, notes…"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-8 h-9"
@@ -154,8 +221,9 @@ export default function PurchaseOrdersPage() {
           <TableHeader>
             <TableRow className="bg-gray-50">
               <TableHead className="whitespace-nowrap">Order Number</TableHead>
-              <TableHead className="whitespace-nowrap">Supplier ID</TableHead>
+              <TableHead className="whitespace-nowrap">Supplier</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Payment</TableHead>
               <TableHead className="whitespace-nowrap">Order Date</TableHead>
               <TableHead className="whitespace-nowrap">Expected Delivery</TableHead>
               <TableHead className="whitespace-nowrap">Total Items</TableHead>
@@ -167,13 +235,13 @@ export default function PurchaseOrdersPage() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={8} className="py-8 text-center text-gray-500">
+                <TableCell colSpan={9} className="py-8 text-center text-gray-500">
                   Loading purchase orders…
                 </TableCell>
               </TableRow>
             ) : filteredPurchaseOrders.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="py-10">
+                <TableCell colSpan={9} className="py-10">
                   <div className="text-center">
                     <p className="font-medium text-gray-700">
                       No purchase orders found
@@ -198,11 +266,33 @@ export default function PurchaseOrdersPage() {
                   <TableCell className="font-medium">
                     {order.orderNumber}
                   </TableCell>
-                  <TableCell>{order.supplierId}</TableCell>
+                  <TableCell>
+                    {order.supplier?.name || `Supplier ID: ${order.supplierId}`}
+                  </TableCell>
                   <TableCell>
                     <Badge className={`border ${statusChip(order.status)}`}>
                       {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
                     </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Select
+                      value={order.paymentStatus}
+                      onValueChange={(value) => {
+                        if (value !== order.paymentStatus) {
+                          handlePaymentStatusUpdate(order.id, value as PaymentStatus);
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="w-[100px] h-6 border-0 p-0 bg-transparent">
+                        <Badge className={`border ${paymentStatusChip(order.paymentStatus)} cursor-pointer hover:opacity-80`}>
+                          {order.paymentStatus.charAt(0).toUpperCase() + order.paymentStatus.slice(1)}
+                        </Badge>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={PaymentStatus.UNPAID}>Unpaid</SelectItem>
+                        <SelectItem value={PaymentStatus.PAID}>Paid</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </TableCell>
                   <TableCell className="text-sm">
                     {formatDate(order.orderDate)}
@@ -225,11 +315,9 @@ export default function PurchaseOrdersPage() {
                         size="sm"
                         className="h-8 w-8 p-0"
                         title="View Details"
-                        asChild
+                        onClick={() => handleViewDetails(order)}
                       >
-                        <Link href={`/purchase-orders/${order.id}`}>
-                          <Eye className="h-4 w-4" />
-                        </Link>
+                        <Eye className="h-4 w-4" />
                       </Button>
 
                       {/* inline status changer */}
@@ -237,23 +325,7 @@ export default function PurchaseOrdersPage() {
                         value={order.status}
                         onValueChange={(value) => {
                           if (value !== order.status) {
-                            if (value === PurchaseOrderStatus.CANCELLED) {
-                              if (
-                                confirm(
-                                  "Are you sure you want to cancel this order?"
-                                )
-                              ) {
-                                handleStatusUpdate(
-                                  order.id,
-                                  value as PurchaseOrderStatus
-                                );
-                              }
-                            } else {
-                              handleStatusUpdate(
-                                order.id,
-                                value as PurchaseOrderStatus
-                              );
-                            }
+                            handleStatusChange(order, value as PurchaseOrderStatus);
                           }
                         }}
                       >
@@ -283,6 +355,26 @@ export default function PurchaseOrdersPage() {
           </TableBody>
         </Table>
       </div>
+
+      {/* Modals */}
+      <PurchaseOrderModal
+        order={selectedOrder}
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setSelectedOrder(null);
+        }}
+      />
+
+      <InvoicePrompt
+        isOpen={isInvoicePromptOpen}
+        onClose={() => {
+          setIsInvoicePromptOpen(false);
+          setOrderToReceive(null);
+        }}
+        onConfirm={handleInvoiceConfirm}
+        orderNumber={orderToReceive?.orderNumber || ""}
+      />
     </div>
   );
 }

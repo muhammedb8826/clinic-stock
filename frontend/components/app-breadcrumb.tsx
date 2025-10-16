@@ -17,6 +17,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import { medicineApi, Medicine } from "@/lib/api";
+import { useNotificationStats } from "@/hooks/use-notifications";
+import { notificationService } from "@/lib/notification-service";
 import {
   LayoutDashboard,
   Pill,
@@ -123,6 +125,9 @@ export function AppBreadcrumb() {
   const { user, logout } = useAuth();
   const router = useRouter();
 
+  // Use real-time notification stats
+  const { stats: realTimeStats, isLoading: statsLoading } = useNotificationStats();
+
   // --------------------- Breadcrumb generation --------------------- //
   const generateBreadcrumbs = (): CrumbItem[] => {
     const segments = pathname.split("/").filter(Boolean);
@@ -173,7 +178,14 @@ export function AppBreadcrumb() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { 
+    load(); 
+    
+    // Initialize notification service connection
+    if (!notificationService.isSocketConnected()) {
+      notificationService.connect().catch(console.error);
+    }
+  }, []);
 
   const buckets = useMemo(() => {
     const out: Medicine[] = [];
@@ -195,8 +207,10 @@ export function AppBreadcrumb() {
     return { out, low, soon, expired };
   }, [meds]);
 
-  const totalCount =
-    buckets.out.length + buckets.low.length + buckets.soon.length + buckets.expired.length;
+  // Use real-time stats if available, otherwise fall back to local calculation
+  const totalCount = realTimeStats 
+    ? realTimeStats.expired + realTimeStats.expiringSoon + realTimeStats.lowStock + realTimeStats.outOfStock
+    : buckets.out.length + buckets.low.length + buckets.soon.length + buckets.expired.length;
 
   // ------------------------------ UI ---------------------------------- //
   const segs = pathname.split("/").filter(Boolean);
@@ -235,7 +249,7 @@ export function AppBreadcrumb() {
       {/* Right controls: Theme, Bell, Profile */}
       <div className="flex items-center gap-2 sm:gap-3">
         {/* 1) Theme toggle (icon only) */}
-        <ThemeToggle size="icon" />
+        <ThemeToggle />
 
         {/* 2) Notification bell with red badge */}
         <Popover open={open} onOpenChange={setOpen}>
@@ -253,6 +267,10 @@ export function AppBreadcrumb() {
               >
                 {totalCount}
               </Badge>
+              {/* Real-time connection indicator */}
+              {notificationService.isSocketConnected() && (
+                <div className="absolute -bottom-1 -right-1 h-3 w-3 bg-green-500 rounded-full border-2 border-white" />
+              )}
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-96 p-0 overflow-hidden" align="end">
@@ -262,6 +280,9 @@ export function AppBreadcrumb() {
                 <div className="text-sm font-semibold">Inventory Alerts</div>
                 <div className="text-xs text-gray-500">
                   {refreshedAt ? `Updated ${refreshedAt.toLocaleTimeString()}` : "—"}
+                  {notificationService.isSocketConnected() && (
+                    <span className="ml-2 text-green-600">• Live</span>
+                  )}
                 </div>
               </div>
               <Button size="sm" variant="outline" onClick={load} disabled={loading} className="h-8">
@@ -294,14 +315,7 @@ export function AppBreadcrumb() {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="icon" className="relative h-9 w-9 rounded-full">
-              {user?.avatar ? (
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src={user.avatar} alt={user.name} />
-                  <AvatarFallback>{user.name?.slice(0, 2)?.toUpperCase() || "US"}</AvatarFallback>
-                </Avatar>
-              ) : (
-                <User className="h-5 w-5 text-gray-900" />
-              )}
+              <User className="h-5 w-5 text-gray-900" />
             </Button>
           </DropdownMenuTrigger>
 

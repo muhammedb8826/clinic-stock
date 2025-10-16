@@ -106,4 +106,13 @@ export class MedicinesController {
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.medicinesService.remove(id);
   }
+
+  @Patch(':id/deactivate')
+  @ApiOperation({ summary: 'Soft delete medicine by deactivating it' })
+  @ApiParam({ name: 'id', description: 'Medicine ID', example: 1 })
+  @ApiResponse({ status: 200, description: 'Medicine deactivated successfully' })
+  @ApiResponse({ status: 404, description: 'Medicine not found' })
+  softDelete(@Param('id', ParseIntPipe) id: number) {
+    return this.medicinesService.softDelete(id);
+  }
 }
