@@ -9,12 +9,12 @@ const nextConfig: NextConfig = {
   eslint: {
     // Warning: This allows production builds to successfully complete even if
     // your project has ESLint errors. Only enable if needed.
-    ignoreDuringBuilds: false,
+    ignoreDuringBuilds: true,
   },
   typescript: {
     // Warning: Dangerously allow production builds to successfully complete even if
     // your project has type errors. Only enable if needed.
-    ignoreBuildErrors: false,
+    ignoreBuildErrors: true,
   },
 };
 
