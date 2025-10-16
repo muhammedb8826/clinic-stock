@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsArray, IsDateString, IsEnum, IsInt, IsNotEmpty, IsNumber, IsOptional, Min, ValidateNested } from 'class-validator';
-import { PurchaseOrderStatus } from '../entities/purchase-order.entity';
+import { IsArray, IsDateString, IsEnum, IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, Min, ValidateNested } from 'class-validator';
+import { PurchaseOrderStatus, PaymentStatus } from '../entities/purchase-order.entity';
 
 export class CreatePurchaseOrderItemDto {
   @ApiProperty()
@@ -24,6 +24,11 @@ export class CreatePurchaseOrderDto {
   @IsEnum(PurchaseOrderStatus)
   status?: PurchaseOrderStatus;
 
+  @ApiProperty({ enum: PaymentStatus, default: PaymentStatus.UNPAID })
+  @IsOptional()
+  @IsEnum(PaymentStatus)
+  paymentStatus?: PaymentStatus;
+
   @ApiProperty()
   @IsDateString()
   orderDate: string;
@@ -32,6 +37,11 @@ export class CreatePurchaseOrderDto {
   @IsOptional()
   @IsDateString()
   expectedDeliveryDate?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  invoiceNumber?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

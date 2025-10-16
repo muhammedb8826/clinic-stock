@@ -7,6 +7,7 @@ import { CreateMedicineDto } from './dto/create-medicine.dto';
 import { UpdateMedicineDto } from './dto/update-medicine.dto';
 import { MedicineQueryDto } from './dto/medicine-query.dto';
 import { Inventory } from '../inventory/entities/inventory.entity';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class MedicinesService {
@@ -17,6 +18,7 @@ export class MedicinesService {
     private readonly categoryRepository: Repository<Category>,
     @InjectRepository(Inventory)
     private readonly inventoryRepository: Repository<Inventory>,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async create(createMedicineDto: CreateMedicineDto): Promise<Medicine> {
@@ -104,7 +106,12 @@ export class MedicinesService {
     }
 
     Object.assign(medicine, updateMedicineDto);
-    return await this.medicineRepository.save(medicine);
+    const updatedMedicine = await this.medicineRepository.save(medicine);
+    
+    // Trigger notification checks after update
+    await this.checkAndNotifyInventoryChanges(updatedMedicine);
+    
+    return updatedMedicine;
   }
 
   async remove(id: number): Promise<void> {
@@ -126,6 +133,16 @@ export class MedicinesService {
       }
       throw err;
     }
+  }
+
+  async softDelete(id: number): Promise<void> {
+    const medicine = await this.findOne(id);
+    
+    // Soft delete by deactivating the medicine
+    await this.medicineRepository.update(id, { 
+      isActive: false,
+      isPublic: false // Also hide from public website
+    });
   }
 
   async findByBarcode(barcode: string): Promise<Medicine> {
@@ -155,5 +172,74 @@ export class MedicinesService {
       .getRawMany();
 
     return result.map(item => item.manufacturer);
+  }
+
+  // Check and notify inventory changes for a specific medicine
+  private async checkAndNotifyInventoryChanges(medicine: Medicine): Promise<void> {
+    try {
+      // Check if medicine is expired
+      if (medicine.expiryDate && new Date(medicine.expiryDate) < new Date()) {
+        await this.notificationsService.sendCustomNotification({
+          type: 'expired',
+          title: 'Medicine Expired',
+          message: `${medicine.name} has expired`,
+          medicineId: medicine.id,
+          medicineName: medicine.name,
+          expiryDate: medicine.expiryDate.toString(),
+          priority: 'urgent',
+          timestamp: new Date().toISOString(),
+        });
+      }
+      // Check if medicine is expiring soon (within 30 days)
+      else if (medicine.expiryDate) {
+        const thirtyDaysFromNow = new Date();
+        thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+        
+        if (new Date(medicine.expiryDate) <= thirtyDaysFromNow) {
+          const daysUntilExpiry = Math.ceil(
+            (new Date(medicine.expiryDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
+          );
+          
+          await this.notificationsService.sendCustomNotification({
+            type: 'expire_soon',
+            title: 'Medicine Expiring Soon',
+            message: `${medicine.name} will expire in ${daysUntilExpiry} days`,
+            medicineId: medicine.id,
+            medicineName: medicine.name,
+            expiryDate: medicine.expiryDate.toString(),
+            priority: daysUntilExpiry <= 7 ? 'high' : 'medium',
+            timestamp: new Date().toISOString(),
+          });
+        }
+      }
+
+      // Check stock levels
+      if (medicine.quantity === 0) {
+        await this.notificationsService.sendCustomNotification({
+          type: 'out_of_stock',
+          title: 'Out of Stock',
+          message: `${medicine.name} is out of stock`,
+          medicineId: medicine.id,
+          medicineName: medicine.name,
+          quantity: 0,
+          priority: 'urgent',
+          timestamp: new Date().toISOString(),
+        });
+      } else if (medicine.quantity <= 10) {
+        await this.notificationsService.sendCustomNotification({
+          type: 'low_stock',
+          title: 'Low Stock Alert',
+          message: `${medicine.name} is running low (${medicine.quantity} ${medicine.unit || 'units'} remaining)`,
+          medicineId: medicine.id,
+          medicineName: medicine.name,
+          quantity: medicine.quantity,
+          priority: medicine.quantity <= 5 ? 'high' : 'medium',
+          timestamp: new Date().toISOString(),
+        });
+      }
+    } catch (error) {
+      // Log error but don't throw to avoid breaking the main operation
+      console.error('Error checking inventory changes:', error);
+    }
   }
 }

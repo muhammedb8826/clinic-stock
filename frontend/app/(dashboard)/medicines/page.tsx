@@ -150,7 +150,9 @@ export default function MedicinesPage() {
     setLoading(true);
     try {
       const response = await medicineApi.getAll({ page: 1, limit: 1000 });
-      setMedicines(response.medicines || []);
+      // Filter out inactive medicines by default
+      const activeMedicines = (response.medicines || []).filter(medicine => medicine.isActive !== false);
+      setMedicines(activeMedicines);
     } catch (error) {
       console.error("Failed to load medicines:", error);
       toast.error("Failed to load medicines");
@@ -337,12 +339,36 @@ export default function MedicinesPage() {
       await medicineApi.delete(medicineToDelete.id);
       toast.success("Medicine deleted");
       loadMedicines();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to delete medicine:", error);
-      toast.error("Failed to delete medicine");
+      
+      // Check if it's a conflict error (409)
+      if (error.response?.status === 409) {
+        // Show a more informative error with options
+        toast.error("Cannot delete medicine", {
+          description: "This medicine is referenced by inventory, sales, or purchase records. You can deactivate it instead.",
+          action: {
+            label: "Deactivate",
+            onClick: () => handleSoftDelete(medicineToDelete.id)
+          }
+        });
+      } else {
+        toast.error("Failed to delete medicine");
+      }
     } finally {
       setDeleteModalOpen(false);
       setMedicineToDelete(null);
+    }
+  };
+
+  const handleSoftDelete = async (id: number) => {
+    try {
+      await medicineApi.softDelete(id);
+      toast.success("Medicine deactivated");
+      loadMedicines();
+    } catch (error) {
+      console.error("Failed to deactivate medicine:", error);
+      toast.error("Failed to deactivate medicine");
     }
   };
 
@@ -804,18 +830,41 @@ export default function MedicinesPage() {
           <DialogHeader>
             <DialogTitle>Delete Medicine</DialogTitle>
           </DialogHeader>
-          <div className="py-4">
+          <div className="py-4 space-y-3">
             <p>
               Are you sure you want to delete{" "}
-              <strong>{medicineToDelete?.name}</strong>? This action cannot be undone.
+              <strong>{medicineToDelete?.name}</strong>?
             </p>
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <p className="text-sm text-amber-800">
+                <strong>Note:</strong> If this medicine is referenced by inventory, sales, or purchase records, 
+                it cannot be permanently deleted. In that case, you can deactivate it instead, which will:
+              </p>
+              <ul className="text-sm text-amber-700 mt-2 ml-4 list-disc">
+                <li>Hide it from the public website</li>
+                <li>Mark it as inactive in the system</li>
+                <li>Preserve all historical data</li>
+              </ul>
+            </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setDeleteModalOpen(false)}>
               Cancel
             </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                if (medicineToDelete) {
+                  handleSoftDelete(medicineToDelete.id);
+                  setDeleteModalOpen(false);
+                  setMedicineToDelete(null);
+                }
+              }}
+            >
+              Deactivate Instead
+            </Button>
             <Button variant="destructive" onClick={confirmDelete}>
-              Delete Medicine
+              Delete Permanently
             </Button>
           </DialogFooter>
         </DialogContent>
