@@ -123,6 +123,12 @@ export function AppBreadcrumb() {
   const { user, logout } = useAuth();
   const router = useRouter();
 
+  // --------------------- Notifications (medicines) --------------------- //
+  const [loading, setLoading] = useState(false);
+  const [meds, setMeds] = useState<Medicine[]>([]);
+  const [open, setOpen] = useState(false);
+  const [refreshedAt, setRefreshedAt] = useState<Date | null>(null);
+
   // --------------------- Breadcrumb generation --------------------- //
   const generateBreadcrumbs = (): CrumbItem[] => {
     const segments = pathname.split("/").filter(Boolean);
@@ -151,13 +157,6 @@ export function AppBreadcrumb() {
   };
 
   const crumbs = generateBreadcrumbs();
-  if (pathname === "/login" || crumbs.length === 0) return null;
-
-  // --------------------- Notifications (medicines) --------------------- //
-  const [loading, setLoading] = useState(false);
-  const [meds, setMeds] = useState<Medicine[]>([]);
-  const [open, setOpen] = useState(false);
-  const [refreshedAt, setRefreshedAt] = useState<Date | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -200,6 +199,8 @@ export function AppBreadcrumb() {
 
   // ------------------------------ UI ---------------------------------- //
   const segs = pathname.split("/").filter(Boolean);
+  
+  if (pathname === "/login" || crumbs.length === 0) return null;
 
   return (
     <div className="mb-6 flex items-center justify-between gap-4">
@@ -235,7 +236,7 @@ export function AppBreadcrumb() {
       {/* Right controls: Theme, Bell, Profile */}
       <div className="flex items-center gap-2 sm:gap-3">
         {/* 1) Theme toggle (icon only) */}
-        <ThemeToggle size="icon" />
+        <ThemeToggle />
 
         {/* 2) Notification bell with red badge */}
         <Popover open={open} onOpenChange={setOpen}>
@@ -290,18 +291,13 @@ export function AppBreadcrumb() {
           </PopoverContent>
         </Popover>
 
-        {/* 3) Profile dropdown with default avatar */}
+        {/* 3) Profile dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="icon" className="relative h-9 w-9 rounded-full">
-              {user?.avatar ? (
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src={user.avatar} alt={user.name} />
-                  <AvatarFallback>{user.name?.slice(0, 2)?.toUpperCase() || "US"}</AvatarFallback>
-                </Avatar>
-              ) : (
-                <User className="h-5 w-5 text-gray-900" />
-              )}
+              <Avatar className="h-8 w-8">
+                <AvatarFallback>{user?.name?.slice(0, 2)?.toUpperCase() || "US"}</AvatarFallback>
+              </Avatar>
             </Button>
           </DropdownMenuTrigger>
 

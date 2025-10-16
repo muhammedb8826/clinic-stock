@@ -12,6 +12,8 @@ interface AuthContextType {
   isAuthenticated: boolean;
 }
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const useAuth = () => {
@@ -46,7 +48,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (email: string, password: string) => {
     try {
-      const response = await fetch('http://localhost:4000/auth/login', {
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
