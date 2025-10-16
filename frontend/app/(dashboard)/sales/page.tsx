@@ -54,8 +54,10 @@ import {
   User,
   Search as SearchIcon,
   Package,
-  Barcode,
   Filter,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 
 /* ------------------------- Types ------------------------- */
@@ -67,6 +69,9 @@ interface SaleItem {
   totalPrice: number;
   medicine?: Medicine;
 }
+
+type SortField = "name" | "category" | "quantity" | "price" | "createdAt";
+type SortDirection = "asc" | "desc";
 
 /* ------------------------- Utils ------------------------- */
 
@@ -82,6 +87,15 @@ const debounce = (fn: (...args: any[]) => void, ms = 200) => {
     t = setTimeout(() => fn(...args), ms);
   };
 };
+
+function getSortIcon(field: SortField, currentField: SortField, currentDirection: SortDirection) {
+  if (field !== currentField) {
+    return <ArrowUpDown className="h-4 w-4 text-gray-400" />;
+  }
+  return currentDirection === "asc" ? 
+    <ArrowUp className="h-4 w-4 text-emerald-600" /> : 
+    <ArrowDown className="h-4 w-4 text-emerald-600" />;
+}
 
 /* ------------------------- Page ------------------------- */
 
@@ -113,7 +127,11 @@ export default function SalesPage() {
   const [onlyInStock, setOnlyInStock] = useState(true);
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [openPicker, setOpenPicker] = useState(false);
-  const [barcode, setBarcode] = useState("");
+  const [medicineSearchTerm, setMedicineSearchTerm] = useState("");
+  
+  // Sorting
+  const [sortField, setSortField] = useState<SortField>("name");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
   /* ------------------------- Data Load ------------------------- */
 
@@ -177,13 +195,45 @@ export default function SalesPage() {
       list = list.filter(
         (m) =>
           m.name.toLowerCase().includes(q) ||
-          m.barcode?.toLowerCase().includes(q) ||
           m.category?.name?.toLowerCase().includes(q)
       );
     }
 
-    return list.slice(0, 200);
-  }, [medicines, internalQuery, onlyInStock, categoryFilter]);
+    // Sort the filtered results
+    return list.sort((a, b) => {
+      let aValue: any;
+      let bValue: any;
+
+      switch (sortField) {
+        case "name":
+          aValue = a.name.toLowerCase();
+          bValue = b.name.toLowerCase();
+          break;
+        case "category":
+          aValue = (a.category?.name || "Uncategorized").toLowerCase();
+          bValue = (b.category?.name || "Uncategorized").toLowerCase();
+          break;
+        case "quantity":
+          aValue = a.quantity;
+          bValue = b.quantity;
+          break;
+        case "price":
+          aValue = Number(a.sellingPrice);
+          bValue = Number(b.sellingPrice);
+          break;
+        case "createdAt":
+          aValue = new Date(a.createdAt || "").getTime();
+          bValue = new Date(b.createdAt || "").getTime();
+          break;
+        default:
+          return 0;
+      }
+
+      if (aValue < bValue) return sortDirection === "asc" ? -1 : 1;
+      if (aValue > bValue) return sortDirection === "asc" ? 1 : -1;
+      return 0;
+    }).slice(0, 200);
+  }, [medicines, internalQuery, onlyInStock, categoryFilter, sortField, sortDirection]);
 
   const filteredCustomers = useMemo(
     () =>
@@ -289,17 +339,28 @@ export default function SalesPage() {
     }
   };
 
-  // Barcode add (paste/scan then Enter)
-  const onBarcodeSubmit = () => {
-    const q = barcode.trim().toLowerCase();
+  // Name search add (paste/type then Enter)
+  const onNameSearchSubmit = () => {
+    const q = medicineSearchTerm.trim().toLowerCase();
     if (!q) return;
-    const found = medicines.find((m) => (m.barcode || "").toLowerCase() === q);
+    const found = medicines.find((m) => m.name.toLowerCase().includes(q));
     if (!found) {
-      toast.error("No medicine with this barcode");
+      toast.error("No medicine found with this name");
       return;
     }
     addMedicineToSale(found);
-    setBarcode("");
+    setMedicineSearchTerm("");
+  };
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      // Toggle direction if same field
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      // Set new field with ascending direction
+      setSortField(field);
+      setSortDirection("asc");
+    }
   };
 
   const processSale = async () => {
@@ -317,6 +378,7 @@ export default function SalesPage() {
       const payload: CreateSaleDto = {
         saleDate: new Date().toISOString(),
         customerName: customerName.trim(),
+        paymentMethod: paymentMethod,
         items: saleItems.map((it) => ({
           medicineId: it.medicineId,
           quantity: it.quantity,
@@ -343,6 +405,7 @@ export default function SalesPage() {
       setPaymentMethod("cash");
       setMedicineQuery("");
       setInternalQuery("");
+      setMedicineSearchTerm("");
     } catch {
       toast.error("Failed to process sale");
     } finally {
@@ -380,21 +443,29 @@ export default function SalesPage() {
               </span>
             </CardTitle>
 
-            {/* Top controls: barcode + quick filters */}
-            <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-2">
-              {/* Barcode quick add */}
-              <div className="relative">
-                <Barcode className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-emerald-700" />
-                <Input
-                  placeholder="Scan/Paste barcode and press Enter"
-                  value={barcode}
-                  onChange={(e) => setBarcode(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") onBarcodeSubmit();
-                  }}
-                  className="pl-9 focus-visible:ring-emerald-500"
-                />
-              </div>
+            {/* Top controls: name search + sorting + quick filters */}
+            <div className="mt-3 grid grid-cols-1 md:grid-cols-4 gap-2">
+              {/* Name quick search */}
+
+              {/* Sort by */}
+              <Select 
+                value={`${sortField}-${sortDirection}`} 
+                onValueChange={(value) => {
+                  const [field, direction] = value.split('-') as [SortField, SortDirection];
+                  setSortField(field);
+                  setSortDirection(direction);
+                }}
+              >
+                <SelectTrigger className="focus:ring-emerald-500">
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="name-asc">Name (A-Z)</SelectItem>
+                  <SelectItem value="name-desc">Name (Z-A)</SelectItem>
+                  <SelectItem value="createdAt-desc">Newest First</SelectItem>
+                  <SelectItem value="createdAt-asc">Oldest First</SelectItem>
+                </SelectContent>
+              </Select>
 
               {/* Category filter */}
               <Select value={categoryFilter} onValueChange={setCategoryFilter}>
@@ -438,7 +509,7 @@ export default function SalesPage() {
                 <div className="h-[3px] w-full bg-gradient-to-r from-emerald-400 via-blue-500 to-emerald-400" />
                 <Command shouldFilter={false}>
                   <CommandInput
-                    placeholder="Type to search by name, barcode, or category…"
+                    placeholder="Type to search by name or category…"
                     value={medicineQuery}
                     onValueChange={setMedicineQuery}
                   />
@@ -680,8 +751,12 @@ export default function SalesPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="cash">Cash</SelectItem>
-                  <SelectItem value="mobile_banking">Mobile Banking</SelectItem>
-                  <SelectItem value="telebirr">Telebirr</SelectItem>
+                  <SelectItem value="transfer_cbe">Transfer to CBE</SelectItem>
+                  <SelectItem value="transfer_coop">Transfer to COOP</SelectItem>
+                  <SelectItem value="transfer_awash">Transfer to Awash</SelectItem>
+                  <SelectItem value="transfer_abyssinia">Transfer to Abyssinia</SelectItem>
+                  <SelectItem value="transfer_telebirr">Transfer to Telebirr</SelectItem>
+                  <SelectItem value="transfer_ebirr">Transfer to E-birr</SelectItem>
                 </SelectContent>
               </Select>
             </div>

@@ -137,7 +137,7 @@ export default function SalesListPage() {
   const [range, setRange] = useState<RangeKey>("all");
   const [customStart, setCustomStart] = useState<string>("");
   const [customEnd, setCustomEnd] = useState<string>("");
-  const [paymentFilter, setPaymentFilter] = useState<"all" | "cash" | "telebirr" | "mobile">("all");
+  const [paymentFilter, setPaymentFilter] = useState<"all" | "cash" | "transfer_cbe" | "transfer_coop" | "transfer_awash" | "transfer_abyssinia" | "transfer_telebirr" | "transfer_ebirr" | "mobile">("all");
 
   useEffect(() => {
     (async () => {
@@ -163,8 +163,13 @@ export default function SalesListPage() {
 
   const normalizePayment = (val: string) => {
     const v = (val || "").toLowerCase();
-    if (v.includes("tele")) return "telebirr";
-    if (v.includes("mobile")) return "mobile";
+    if (v.includes("transfer_cbe") || v.includes("cbe")) return "transfer_cbe";
+    if (v.includes("transfer_coop") || v.includes("coop")) return "transfer_coop";
+    if (v.includes("transfer_awash") || v.includes("awash")) return "transfer_awash";
+    if (v.includes("transfer_abyssinia") || v.includes("abyssinia")) return "transfer_abyssinia";
+    if (v.includes("transfer_telebirr") || v.includes("telebirr")) return "transfer_telebirr";
+    if (v.includes("transfer_ebirr") || v.includes("e-birr") || v.includes("ebirr")) return "transfer_ebirr";
+    if (v.includes("mobile")) return "mobile"; // Keep for backward compatibility
     return "cash";
   };
 
@@ -228,9 +233,14 @@ export default function SalesListPage() {
 
   const PaymentBadge = ({ method }: { method: string }) => {
     const norm = method.toLowerCase();
-    if (norm.includes("tele")) return <Badge variant="outline">Telebirr</Badge>;
-    if (norm.includes("mobile")) return <Badge variant="secondary">Mobile Banking</Badge>;
-    return <Badge variant="default">Cash</Badge>;
+    if (norm.includes("transfer_cbe") || norm.includes("cbe")) return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Transfer to CBE</Badge>;
+    if (norm.includes("transfer_coop") || norm.includes("coop")) return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Transfer to COOP</Badge>;
+    if (norm.includes("transfer_awash") || norm.includes("awash")) return <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">Transfer to Awash</Badge>;
+    if (norm.includes("transfer_abyssinia") || norm.includes("abyssinia")) return <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">Transfer to Abyssinia</Badge>;
+    if (norm.includes("transfer_telebirr") || norm.includes("telebirr")) return <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">Transfer to Telebirr</Badge>;
+    if (norm.includes("transfer_ebirr") || norm.includes("e-birr") || norm.includes("ebirr")) return <Badge variant="outline" className="bg-cyan-50 text-cyan-700 border-cyan-200">Transfer to E-birr</Badge>;
+    if (norm.includes("mobile")) return <Badge variant="secondary">Mobile Banking</Badge>; // Keep for backward compatibility
+    return <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200">Cash</Badge>;
   };
 
   /* Export respects current filters (filteredSales) */
@@ -377,7 +387,7 @@ export default function SalesListPage() {
           <div className="text-xs text-gray-500 mb-1">Payment Method</div>
           <Select
             value={paymentFilter}
-            onValueChange={(val: "all" | "cash" | "telebirr" | "mobile") => {
+            onValueChange={(val: "all" | "cash" | "transfer_cbe" | "transfer_coop" | "transfer_awash" | "transfer_abyssinia" | "transfer_telebirr" | "transfer_ebirr" | "mobile") => {
               setPaymentFilter(val);
               setCurrentPage(1);
             }}
@@ -388,7 +398,12 @@ export default function SalesListPage() {
             <SelectContent>
               <SelectItem value="all">All</SelectItem>
               <SelectItem value="cash">Cash</SelectItem>
-              <SelectItem value="telebirr">Telebirr</SelectItem>
+              <SelectItem value="transfer_cbe">Transfer to CBE</SelectItem>
+              <SelectItem value="transfer_coop">Transfer to COOP</SelectItem>
+              <SelectItem value="transfer_awash">Transfer to Awash</SelectItem>
+              <SelectItem value="transfer_abyssinia">Transfer to Abyssinia</SelectItem>
+              <SelectItem value="transfer_telebirr">Transfer to Telebirr</SelectItem>
+              <SelectItem value="transfer_ebirr">Transfer to E-birr</SelectItem>
               <SelectItem value="mobile">Mobile Banking</SelectItem>
             </SelectContent>
           </Select>

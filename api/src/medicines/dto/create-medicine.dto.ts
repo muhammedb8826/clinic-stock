@@ -1,4 +1,4 @@
-import { IsString, IsOptional, MinLength, IsNotEmpty, IsInt, IsNumber, IsDateString, Validate, ValidationArguments, ValidatorConstraint, ValidatorConstraintInterface } from 'class-validator';
+import { IsString, IsOptional, MinLength, IsNotEmpty, IsInt, IsNumber, IsDateString, IsBoolean, Validate, ValidationArguments, ValidatorConstraint, ValidatorConstraintInterface } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -60,6 +60,14 @@ export class CreateMedicineDto {
   quantity: number;
 
   @ApiProperty({
+    description: 'Unit of measurement',
+    example: 'tablet',
+  })
+  @IsOptional()
+  @IsString()
+  unit?: string;
+
+  @ApiProperty({
     description: 'Selling price per unit in ETB',
     example: 25.50,
     default: 0,
@@ -85,11 +93,22 @@ export class CreateMedicineDto {
   @Validate(ExpiryDateAfterManufacturingDateConstraint)
   expiryDate: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: 'Manufacturing date',
     example: '2024-01-15',
   })
+  @IsOptional()
   @IsDateString()
-  manufacturingDate: string;
+  manufacturingDate?: string;
+
+  @ApiPropertyOptional({
+    description: 'Whether the medicine is visible on public website',
+    example: true,
+    default: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
+  isPublic?: boolean;
 
 }

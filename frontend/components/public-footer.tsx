@@ -62,23 +62,6 @@ export function PublicFooter() {
               <li><Link href="/changelog">Changelog</Link></li>
             </ul>
           </div>
-
-          {/* Newsletter */}
-          <div>
-            <h4 className="text-lg font-semibold mb-3">Stay Updated</h4>
-            <p className="mb-3 opacity-90">Get product updates and tips. No spam.</p>
-            <form className="flex items-stretch gap-2">
-              <input
-                type="email"
-                placeholder="Your email"
-                aria-label="Email address"
-                className="w-full rounded-md px-3 py-2 bg-white/10 outline-none border border-white/20 placeholder-white/70"
-              />
-              <button type="button" className="rounded-md px-4 py-2 bg-white/20 hover:bg-white/30 transition-colors">
-                Subscribe
-              </button>
-            </form>
-          </div>
         </div>
 
         {/* Bottom bar */}

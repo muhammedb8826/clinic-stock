@@ -47,6 +47,7 @@ export class SalesService {
       customerPhone: dto.customerPhone,
       discount: dto.discount ?? 0,
       tax: dto.tax ?? 0,
+      paymentMethod: dto.paymentMethod,
     });
     sale.items = dto.items.map((i) => this.itemRepo.create({
       medicineId: i.medicineId,

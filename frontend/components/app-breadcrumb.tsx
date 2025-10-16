@@ -63,7 +63,7 @@ interface CrumbItem { label: string; href?: string; }
 
 const routeLabels: Record<string, string> = {
   dashboard: "Dashboard",
-  medicines: "Medicines",
+  medicines: "Products",
   categories: "Categories",
   suppliers: "Suppliers",
   customers: "Customers",

@@ -23,7 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import { Search, ShoppingCart } from "lucide-react";
+import { Search, ShoppingCart, Pill, Sparkles, Heart, Shield, Star, Filter } from "lucide-react";
 
 /* ------------------------- Helpers ------------------------- */
 
@@ -51,6 +51,25 @@ function stockPill(quantity: number) {
   } as const;
 }
 
+function getCategoryIcon(categoryName: string) {
+  switch (categoryName?.toLowerCase()) {
+    case 'prescription medicines':
+      return <Pill className="h-4 w-4" />;
+    case 'over-the-counter drugs':
+      return <Shield className="h-4 w-4" />;
+    case 'skincare & cosmetics':
+      return <Sparkles className="h-4 w-4" />;
+    case 'healthcare accessories':
+      return <Heart className="h-4 w-4" />;
+    case 'vitamins & supplements':
+      return <Star className="h-4 w-4" />;
+    case 'personal care':
+      return <Heart className="h-4 w-4" />;
+    default:
+      return <Pill className="h-4 w-4" />;
+  }
+}
+
 /* ------------------------- Page ------------------------- */
 
 export default function ProductsPage() {
@@ -73,7 +92,7 @@ export default function ProductsPage() {
         limit: 1000,
         isActive: true,
       });
-      const inStock = (response.medicines || []).filter((m) => (m.quantity ?? 0) > 0);
+      const inStock = (response.medicines || []).filter((m) => (m.quantity ?? 0) > 0 && (m.isPublic ?? true));
       setMedicines(inStock);
     } catch (error) {
       console.error("Failed to load medicines:", error);
@@ -145,13 +164,9 @@ export default function ProductsPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="text-center mb-10">
-          <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-3">
-            Veterinary Drugs & Agri Inputs
-          </h1>
-          <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-            All items shown are currently{" "}
-            <span className="font-medium">in stock</span> and ready for order.
-          </p>
+          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-3">
+            Wan Ofi Pharmacy Products & Cosmetics
+          </h2>
         </div>
 
         {/* Toolbar */}
@@ -159,7 +174,7 @@ export default function ProductsPage() {
           <div className="relative w-full md:max-w-xl">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
             <Input
-              placeholder="Search by product or category…"
+              placeholder="Search medicines, cosmetics, or categories…"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
@@ -181,6 +196,7 @@ export default function ProductsPage() {
 
             {(searchTerm || selectedCategory !== "All" || sortBy !== "relevance") && (
               <Button variant="outline" onClick={clearFilters}>
+                <Filter className="h-4 w-4 mr-1" />
                 Clear
               </Button>
             )}
@@ -209,7 +225,8 @@ export default function ProductsPage() {
                         : "border-emerald-200 text-emerald-700 hover:bg-emerald-50"
                     }
                   >
-                    {c} {count ? `(${count})` : ""}
+                    {getCategoryIcon(c)}
+                    <span className="ml-1">{c} {count ? `(${count})` : ""}</span>
                   </Button>
                 );
               })}
@@ -225,7 +242,7 @@ export default function ProductsPage() {
               <span className="font-medium text-gray-700">
                 {sorted.length}
               </span>{" "}
-              {sorted.length === 1 ? "item" : "items"}
+              {sorted.length === 1 ? "product" : "products"}
             </h2>
           )}
         </div>
@@ -253,18 +270,19 @@ export default function ProductsPage() {
             {sorted.map((m) => {
               const s = stockPill(m.quantity);
               return (
-                <Card key={m.id} className="hover:shadow-lg transition-shadow overflow-hidden">
+                <Card key={m.id} className="hover:shadow-lg transition-all duration-200 overflow-hidden group">
                   <div className="h-1 w-full bg-gradient-to-r from-emerald-400 via-blue-500 to-emerald-400" />
                   <CardHeader className="pb-3">
                     <div className="flex justify-between items-start mb-2">
                       <Badge className={`text-xs border ${s.cls}`}>{s.label}</Badge>
                       {m.category?.name && (
-                        <Badge variant="outline" className="text-xs border-emerald-200 text-emerald-700">
+                        <Badge variant="outline" className="text-xs border-emerald-200 text-emerald-700 flex items-center gap-1">
+                          {getCategoryIcon(m.category.name)}
                           {m.category.name}
                         </Badge>
                       )}
                     </div>
-                    <CardTitle className="text-lg line-clamp-2">{m.name}</CardTitle>
+                    <CardTitle className="text-lg line-clamp-2 group-hover:text-emerald-600 transition-colors">{m.name}</CardTitle>
                     <CardDescription className="text-sm">
                       Quantity: {m.quantity} units
                     </CardDescription>
@@ -275,9 +293,14 @@ export default function ProductsPage() {
                         <span className="text-2xl font-extrabold text-blue-700">
                           {formatPrice(m.sellingPrice)}
                         </span>
+                        {m.expiryDate && (
+                          <span className="text-xs text-gray-500">
+                            Exp: {new Date(m.expiryDate).toLocaleDateString()}
+                          </span>
+                        )}
                       </div>
                       <Button
-                        className="w-full bg-gradient-to-r from-emerald-500 to-blue-600 hover:from-emerald-600 hover:to-blue-700"
+                        className="w-full bg-gradient-to-r from-emerald-500 to-blue-600 hover:from-emerald-600 hover:to-blue-700 transition-all duration-200"
                         onClick={() => handleAddToCart(m)}
                         disabled={m.quantity <= 0}
                       >
@@ -301,6 +324,31 @@ export default function ProductsPage() {
                 ? "Try adjusting your search or clear the category filter."
                 : "No items are currently in stock."}
             </p>
+            {searchTerm && (
+              <Button variant="outline" onClick={clearFilters} className="mt-4">
+                Clear Filters
+              </Button>
+            )}
+          </div>
+        )}
+
+        {/* Call to Action */}
+        {!loading && sorted.length > 0 && (
+          <div className="mt-16 text-center">
+            <Card className="bg-gradient-to-r from-emerald-50 to-blue-50 border-emerald-200">
+              <CardContent className="py-8">
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">Need Help Finding Products?</h3>
+                <p className="text-gray-600 mb-4">Our pharmacy team is here to help you find the right medications and cosmetic products.</p>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  <Button size="lg" className="bg-gradient-to-r from-emerald-500 to-blue-600 hover:from-emerald-600 hover:to-blue-700">
+                    Contact Pharmacy Team
+                  </Button>
+                  <Button size="lg" variant="outline">
+                    Schedule Consultation
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         )}
       </div>

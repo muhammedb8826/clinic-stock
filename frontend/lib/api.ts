@@ -17,11 +17,13 @@ export interface Medicine {
   category?: Pick<Category, 'id' | 'name'>;
   barcode?: string;
   quantity: number;
+  unit?: string;
   sellingPrice: number;
   costPrice: number;
   expiryDate: string;
   manufacturingDate: string;
   isActive: boolean;
+  isPublic?: boolean; // NEW: visibility field
   createdAt: string;
   updatedAt: string;
 }
@@ -44,10 +46,12 @@ export interface CreateMedicineDto {
   categoryId?: number;
   barcode?: string;
   quantity: number;
+  unit?: string;
   sellingPrice: number;
   costPrice: number;
   expiryDate: string;
-  manufacturingDate: string;
+  manufacturingDate?: string; // Made optional to match form
+  isPublic?: boolean; // NEW: visibility field
 }
 
 export type UpdateMedicineDto = Partial<CreateMedicineDto>;
@@ -68,6 +72,46 @@ export interface MedicinesResponse {
   total: number;
   page: number;
   limit: number;
+}
+
+// Cost types
+export interface Cost {
+  id: number;
+  description: string;
+  category: string;
+  amount: number;
+  costDate: string;
+  notes?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateCostDto {
+  description: string;
+  category: string;
+  amount: number;
+  costDate: string;
+  notes?: string;
+}
+
+export interface UpdateCostDto extends Partial<CreateCostDto> {}
+
+export interface CostQueryParams {
+  search?: string;
+  category?: string;
+  startDate?: string;
+  endDate?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface CostListResponse {
+  costs: Cost[];
+  total: number;
+  page: number;
+  limit: number;
+  totalAmount: number;
 }
 
 // Medicine API functions
@@ -387,10 +431,11 @@ export interface CreateSaleDto {
   customerPhone?: string;
   discount?: number;
   tax?: number;
+  paymentMethod?: string;
   items: SaleItemDto[];
 }
 export interface SaleItem { id: number; saleId: number; medicineId: number; quantity: number; unitPrice: number; totalPrice: number }
-export interface Sale { id: number; saleNumber: string; saleDate: string; customerName?: string; customerPhone?: string; totalAmount: number; discount: number; tax: number; items: SaleItem[]; calculatedProfit?: number }
+export interface Sale { id: number; saleNumber: string; saleDate: string; customerName?: string; customerPhone?: string; totalAmount: number; discount: number; tax: number; paymentMethod?: string; items: SaleItem[]; calculatedProfit?: number }
 
 export const salesApi = {
   create: async (data: CreateSaleDto): Promise<Sale> => { const res = await api.post('/sales', data); return res.data },
@@ -412,6 +457,8 @@ export const adjustmentsApi = {
 // Dashboard
 export interface DashboardStats {
   totalMedicines: number;
+  inStockCount: number;
+  outOfStockCount: number;
   lowStockCount: number;
   expiredCount: number;
   expiringSoonCount: number;
@@ -438,10 +485,67 @@ export interface DashboardStats {
     month: string;
     sales: number;
   }>;
+  medicineByCategory: Array<{
+    name: string;
+    count: number;
+  }>;
+  stockStatusOverview: {
+    name: string;
+    inStock: number;
+    outOfStock: number;
+    lowStock: number;
+    expiringSoon: number;
+  };
 }
 
 export const dashboardApi = {
   getStats: async (): Promise<DashboardStats> => { const res = await api.get('/dashboard/stats'); return res.data },
+};
+
+// Cost API functions
+export const costApi = {
+  // Get all costs with pagination and filters
+  getAll: async (params?: CostQueryParams): Promise<CostListResponse> => {
+    const response = await api.get('/costs', { params });
+    return response.data;
+  },
+
+  // Get a single cost by ID
+  getById: async (id: number): Promise<Cost> => {
+    const response = await api.get(`/costs/${id}`);
+    return response.data;
+  },
+
+  // Create a new cost
+  create: async (data: CreateCostDto): Promise<Cost> => {
+    const response = await api.post('/costs', data);
+    return response.data;
+  },
+
+  // Update a cost
+  update: async (id: number, data: UpdateCostDto): Promise<Cost> => {
+    const response = await api.patch(`/costs/${id}`, data);
+    return response.data;
+  },
+
+  // Delete a cost (soft delete)
+  delete: async (id: number): Promise<void> => {
+    await api.delete(`/costs/${id}`);
+  },
+
+  // Get all cost categories
+  getCategories: async (): Promise<string[]> => {
+    const response = await api.get('/costs/categories');
+    return response.data;
+  },
+
+  // Get costs by date range
+  getByDateRange: async (startDate: string, endDate: string): Promise<{ costs: Cost[]; totalAmount: number }> => {
+    const response = await api.get('/costs/date-range', {
+      params: { startDate, endDate }
+    });
+    return response.data;
+  },
 };
 
 export default api;

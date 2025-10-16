@@ -100,10 +100,7 @@ export function NavUser({
               <DropdownMenuItem>
                 <IconNotification />
                 Notifications
-              </DropdownMenuItem>
-              <div className="px-2 py-1.5">
-                <ThemeToggle />
-              </div>
+              </DropdownMenuItem> 
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleLogout}>

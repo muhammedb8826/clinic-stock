@@ -18,8 +18,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Clinic Stock Management",
-  description: "A comprehensive pharmacy inventory management system",
+  title: "Wan Ofi Pharmacy Management",
+  description: "A comprehensive pharmacy and cosmetic retail management system for Wan Ofi Drug Store",
 };
 
 export default function RootLayout({

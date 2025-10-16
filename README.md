@@ -30,7 +30,7 @@ After you're finished please remove all the comments and instructions!
   <img src="murple_logo.png" alt="logo" width="140"  height="auto" />
   <br/>
 
-  <h3><b>Microverse README Template</b></h3>
+  <h3><b>Wan Ofi Pharmacy Management System</b></h3>
 
 </div>
 
@@ -60,11 +60,11 @@ After you're finished please remove all the comments and instructions!
 
 <!-- PROJECT DESCRIPTION -->
 
-# 📖 [your_project_name] <a name="about-project"></a>
+# 📖 Wan Ofi Pharmacy Management System <a name="about-project"></a>
 
-> Describe your project in 1 or 2 sentences.
+> A comprehensive pharmacy and cosmetic retail management system for Wan Ofi Drug Store.
 
-**[your_project__name]** is a...
+**Wan Ofi Pharmacy Management System** is a modern, full-stack application designed to streamline pharmacy operations, manage inventory, handle prescriptions, and provide excellent customer service for healthcare retail businesses.
 
 ## 🛠 Built With <a name="built-with"></a>
 
@@ -73,16 +73,21 @@ After you're finished please remove all the comments and instructions!
 > Describe the tech stack and include only the relevant sections that apply to your project.
 
 <details>
-  <summary>Client</summary>
+  <summary>Frontend</summary>
   <ul>
-    <li><a href="https://reactjs.org/">React.js</a></li>
+    <li><a href="https://nextjs.org/">Next.js 15</a></li>
+    <li><a href="https://reactjs.org/">React 19</a></li>
+    <li><a href="https://tailwindcss.com/">Tailwind CSS</a></li>
+    <li><a href="https://www.typescriptlang.org/">TypeScript</a></li>
   </ul>
 </details>
 
 <details>
-  <summary>Server</summary>
+  <summary>Backend</summary>
   <ul>
-    <li><a href="https://expressjs.com/">Express.js</a></li>
+    <li><a href="https://nestjs.com/">NestJS</a></li>
+    <li><a href="https://typeorm.io/">TypeORM</a></li>
+    <li><a href="https://swagger.io/">Swagger API</a></li>
   </ul>
 </details>
 
@@ -97,11 +102,14 @@ After you're finished please remove all the comments and instructions!
 
 ### Key Features <a name="key-features"></a>
 
-> Describe between 1-3 key features of the application.
-
-- **[key_feature_1]**
-- **[key_feature_2]**
-- **[key_feature_3]**
+- **Inventory Management**: Track prescription medicines, OTC drugs, cosmetics, and healthcare accessories
+- **Prescription Management**: Digital prescription handling with FDA compliance
+- **Point of Sale**: Integrated POS system with barcode scanning
+- **Customer Management**: Patient records and customer relationship management
+- **Supplier Management**: Purchase orders, supplier tracking, and procurement
+- **Analytics & Reporting**: Sales analytics, inventory reports, and business insights
+- **Multi-location Support**: Chain pharmacy management capabilities
+- **Role-based Access**: Pharmacist, Technician, Manager, and Admin roles
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 

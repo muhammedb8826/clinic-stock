@@ -47,10 +47,12 @@ async function bootstrap() {
 
     // Categories
     const categoriesSeed: Array<Partial<Category>> = [
-      { name: 'Pain Relief', description: 'Analgesics and antipyretics', isActive: true },
-      { name: 'Antibiotics', description: 'Bacterial infection treatment', isActive: true },
-      { name: 'Vitamins', description: 'Supplements and multivitamins', isActive: true },
-      { name: 'Cough & Cold', description: 'Cough syrups, decongestants', isActive: true },
+      { name: 'Prescription Medicines', description: 'Controlled substances and prescription-only medications', isActive: true },
+      { name: 'Over-the-Counter Drugs', description: 'OTC medications and health supplements', isActive: true },
+      { name: 'Skincare & Cosmetics', description: 'Beauty products, skincare, and cosmetic items', isActive: true },
+      { name: 'Healthcare Accessories', description: 'Medical devices, diagnostic tools, and health monitors', isActive: true },
+      { name: 'Vitamins & Supplements', description: 'Nutritional supplements and multivitamins', isActive: true },
+      { name: 'Personal Care', description: 'Hygiene products and personal care items', isActive: true },
     ];
     await upsert(categoryRepo, categoriesSeed, ['name']);
 
@@ -59,15 +61,17 @@ async function bootstrap() {
 
     // Suppliers
     const suppliersSeed: Array<Partial<Supplier>> = [
-      { name: 'Ethiomed Pharma', email: 'contact@ethiomed.et', phone: '+251911000001', isActive: true },
-      { name: 'Addis Pharma', email: 'sales@addispharma.et', phone: '+251911000002', isActive: true },
+      { name: 'Ethiopian Pharmaceutical Supply', email: 'contact@epharma.et', phone: '+251911000001', isActive: true },
+      { name: 'Addis Ababa Medical Distributors', email: 'sales@aamd.et', phone: '+251911000002', isActive: true },
+      { name: 'Cosmetic Brands Ethiopia', email: 'info@cbe.et', phone: '+251911000003', isActive: true },
     ];
     await upsert(supplierRepo, suppliersSeed, ['name']);
 
     // Customers
     const customersSeed: Array<Partial<Customer>> = [
       { name: 'Walk-in Customer' },
-      { name: 'City Clinic', email: 'clinic@example.com', phone: '+251911123456', address: 'Bole, Addis Ababa' },
+      { name: 'City Medical Center', email: 'clinic@citymedical.com', phone: '+251911123456', address: 'Bole, Addis Ababa' },
+      { name: 'Family Health Clinic', email: 'info@familyhealth.et', phone: '+251911123457', address: 'Kazanchis, Addis Ababa' },
     ];
     await upsert(customerRepo, customersSeed, ['name']);
 
@@ -82,10 +86,11 @@ async function bootstrap() {
     // Medicines
     const medicinesSeed: Array<Partial<Medicine>> = [
       {
-        name: 'Paracetamol 500mg',
-        categoryId: categoryByName['Pain Relief']?.id,
+        name: 'Paracetamol 500mg Tablets',
+        categoryId: categoryByName['Over-the-Counter Drugs']?.id,
         barcode: '1111111111111',
-        quantity: 0,
+        quantity: 200,
+        unit: 'tablet',
         sellingPrice: 25.5 as any,
         costPrice: 15.0 as any,
         expiryDate: new Date('2026-12-31'),
@@ -93,10 +98,11 @@ async function bootstrap() {
         isActive: true,
       },
       {
-        name: 'Amoxicillin 500mg',
-        categoryId: categoryByName['Antibiotics']?.id,
+        name: 'Amoxicillin 500mg Capsules',
+        categoryId: categoryByName['Prescription Medicines']?.id,
         barcode: '2222222222222',
-        quantity: 0,
+        quantity: 150,
+        unit: 'capsule',
         sellingPrice: 75.0 as any,
         costPrice: 50.0 as any,
         expiryDate: new Date('2026-06-30'),
@@ -104,14 +110,39 @@ async function bootstrap() {
         isActive: true,
       },
       {
-        name: 'Vitamin C 1000mg',
-        categoryId: categoryByName['Vitamins']?.id,
+        name: 'Vitamin C 1000mg Tablets',
+        categoryId: categoryByName['Vitamins & Supplements']?.id,
         barcode: '3333333333333',
-        quantity: 0,
+        quantity: 300,
+        unit: 'tablet',
         sellingPrice: 40.0 as any,
         costPrice: 20.0 as any,
         expiryDate: new Date('2027-01-31'),
         manufacturingDate: new Date('2024-02-01'),
+        isActive: true,
+      },
+      {
+        name: 'Moisturizing Face Cream',
+        categoryId: categoryByName['Skincare & Cosmetics']?.id,
+        barcode: '4444444444444',
+        quantity: 50,
+        unit: 'tube',
+        sellingPrice: 120.0 as any,
+        costPrice: 80.0 as any,
+        expiryDate: new Date('2026-08-31'),
+        manufacturingDate: new Date('2024-01-15'),
+        isActive: true,
+      },
+      {
+        name: 'Blood Pressure Monitor',
+        categoryId: categoryByName['Healthcare Accessories']?.id,
+        barcode: '5555555555555',
+        quantity: 5,
+        unit: 'unit',
+        sellingPrice: 450.0 as any,
+        costPrice: 300.0 as any,
+        expiryDate: new Date('2027-12-31'),
+        manufacturingDate: new Date('2024-01-01'),
         isActive: true,
       },
     ];
@@ -123,7 +154,7 @@ async function bootstrap() {
     // Inventory
     const inventorySeed: Array<Partial<Inventory>> = [
       {
-        medicineId: medicineByName['Paracetamol 500mg'].id,
+        medicineId: medicineByName['Paracetamol 500mg Tablets'].id,
         batchNumber: 'PARA-B001',
         quantity: 200,
         sellingPrice: 25.5 as any,
@@ -135,7 +166,7 @@ async function bootstrap() {
         notes: 'Initial stock',
       },
       {
-        medicineId: medicineByName['Amoxicillin 500mg'].id,
+        medicineId: medicineByName['Amoxicillin 500mg Capsules'].id,
         batchNumber: 'AMOX-B001',
         quantity: 150,
         sellingPrice: 75.0 as any,
@@ -147,7 +178,7 @@ async function bootstrap() {
         notes: 'Initial stock',
       },
       {
-        medicineId: medicineByName['Vitamin C 1000mg'].id,
+        medicineId: medicineByName['Vitamin C 1000mg Tablets'].id,
         batchNumber: 'VITC-B001',
         quantity: 300,
         sellingPrice: 40.0 as any,
@@ -175,7 +206,7 @@ async function bootstrap() {
     const purchaseOrdersSeed: Array<Partial<PurchaseOrder>> = [
       {
         orderNumber: 'PO-2025-001',
-        supplierId: supplierByName['Ethiomed Pharma']?.id,
+        supplierId: supplierByName['Ethiopian Pharmaceutical Supply']?.id,
         status: PurchaseOrderStatus.RECEIVED,
         orderDate: new Date('2025-01-10'),
         expectedDeliveryDate: new Date('2025-01-15'),
@@ -184,7 +215,7 @@ async function bootstrap() {
       },
       {
         orderNumber: 'PO-2025-002',
-        supplierId: supplierByName['Addis Pharma']?.id,
+        supplierId: supplierByName['Addis Ababa Medical Distributors']?.id,
         status: PurchaseOrderStatus.ORDERED,
         orderDate: new Date('2025-01-20'),
         expectedDeliveryDate: new Date('2025-01-25'),
@@ -199,7 +230,7 @@ async function bootstrap() {
         
         // Add items to purchase orders
         if (po.orderNumber === 'PO-2025-001') {
-          const paracetamol = medicineByName['Paracetamol 500mg'];
+          const paracetamol = medicineByName['Paracetamol 500mg Tablets'];
           if (paracetamol) {
             await purchaseOrderItemRepo.save(purchaseOrderItemRepo.create({
               purchaseOrderId: po.id,
@@ -208,7 +239,7 @@ async function bootstrap() {
             }));
           }
         } else if (po.orderNumber === 'PO-2025-002') {
-          const amoxicillin = medicineByName['Amoxicillin 500mg'];
+          const amoxicillin = medicineByName['Amoxicillin 500mg Capsules'];
           if (amoxicillin) {
             await purchaseOrderItemRepo.save(purchaseOrderItemRepo.create({
               purchaseOrderId: po.id,
@@ -233,7 +264,7 @@ async function bootstrap() {
       {
         saleNumber: 'SALE-2025-002',
         saleDate: new Date('2025-01-19'),
-        customerName: 'City Clinic',
+        customerName: 'City Medical Center',
         customerPhone: '+251911123456',
         totalAmount: 150.0 as any,
         discount: 10.0 as any,
@@ -248,7 +279,7 @@ async function bootstrap() {
         
         // Add items to sales
         if (sale.saleNumber === 'SALE-2025-001') {
-          const paracetamol = medicineByName['Paracetamol 500mg'];
+          const paracetamol = medicineByName['Paracetamol 500mg Tablets'];
           if (paracetamol) {
             await saleItemRepo.save(saleItemRepo.create({
               saleId: sale.id,
@@ -259,7 +290,7 @@ async function bootstrap() {
             }));
           }
         } else if (sale.saleNumber === 'SALE-2025-002') {
-          const amoxicillin = medicineByName['Amoxicillin 500mg'];
+          const amoxicillin = medicineByName['Amoxicillin 500mg Capsules'];
           if (amoxicillin) {
             await saleItemRepo.save(saleItemRepo.create({
               saleId: sale.id,

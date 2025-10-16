@@ -29,8 +29,15 @@ export class DashboardService {
     // Calculate statistics
     const totalMedicines = medicines.length;
     
-    const lowStockMedicines = medicines.filter(m => m.quantity <= 10);
+    // Stock status calculations based on medicine quantities (matching medicines page logic)
+    const outOfStockMedicines = medicines.filter(m => m.quantity <= 0);
+    const outOfStockCount = outOfStockMedicines.length;
+    
+    const lowStockMedicines = medicines.filter(m => m.quantity > 0 && m.quantity <= 10);
     const lowStockCount = lowStockMedicines.length;
+    
+    const inStockMedicines = medicines.filter(m => m.quantity > 10);
+    const inStockCount = inStockMedicines.length;
     
     const expiredMedicines = medicines.filter(m => {
       const expiryDate = new Date(m.expiryDate);
@@ -41,7 +48,7 @@ export class DashboardService {
     const expiringSoonMedicines = medicines.filter(m => {
       const expiryDate = new Date(m.expiryDate);
       const daysUntilExpiry = Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-      return daysUntilExpiry <= 30 && daysUntilExpiry > 0;
+      return daysUntilExpiry <= 180 && daysUntilExpiry > 0; // Next 6 months
     });
     const expiringSoonCount = expiringSoonMedicines.length;
 
@@ -132,8 +139,30 @@ export class DashboardService {
       sales
     }));
 
+    // Medicine by Category data
+    const categoryCounts = new Map<string, number>();
+    medicines.forEach(medicine => {
+      const categoryName = medicine.category?.name || 'Uncategorized';
+      categoryCounts.set(categoryName, (categoryCounts.get(categoryName) || 0) + 1);
+    });
+    const medicineByCategory = Array.from(categoryCounts.entries()).map(([name, count]) => ({
+      name,
+      count
+    }));
+
+    // Stock Status Overview
+    const stockStatusOverview = {
+      name: 'Stock Status',
+      inStock: inStockCount,
+      outOfStock: outOfStockCount,
+      lowStock: lowStockCount,
+      expiringSoon: expiringSoonCount
+    };
+
     return {
       totalMedicines,
+      inStockCount,
+      outOfStockCount,
       lowStockCount,
       expiredCount,
       expiringSoonCount,
@@ -156,7 +185,9 @@ export class DashboardService {
         quantitySold: med.totalQuantity,
         totalRevenue: med.totalRevenue
       })),
-      monthlySales: monthlySalesArray
+      monthlySales: monthlySalesArray,
+      medicineByCategory,
+      stockStatusOverview
     };
   }
 }
