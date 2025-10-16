@@ -15,7 +15,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Loader2, Eye, EyeOff } from "lucide-react";
+import { Loader2, Eye, EyeOff, Syringe } from "lucide-react";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -57,10 +57,12 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         {/* Brand */}
         <div className="text-center mb-6">
-          <div className="mx-auto h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-400 to-blue-600" />
-          <h1 className="mt-4 text-3xl font-extrabold text-gray-900">Milkii Agri-Vet</h1>
+          <div className="mx-auto h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-400 to-blue-600 flex items-center justify-center">
+            <Syringe className="h-5 w-5 text-white" />
+          </div>
+          <h1 className="mt-4 text-3xl font-extrabold text-gray-900">Wan Ofi Pharmacy</h1>
           <p className="mt-2 text-sm text-gray-600">
-            Sign in to your workspace
+            Sign in to your pharmacy workspace
           </p>
         </div>
 
@@ -153,18 +155,10 @@ export default function LoginPage() {
           </CardContent>
         </Card>
 
-        {/* Optional demo creds */}
-        <div className="text-center mt-4">
-          <p className="text-xs text-gray-500">
-            Demo: <span className="font-medium">admin@example.com</span> /{" "}
-            <span className="font-medium">password123</span>
-          </p>
-        </div>
-
         {/* Sign up hint */}
         <p className="mt-4 text-center text-sm text-gray-600">
-          New to Milkii?{" "}
-          <Link href="/register" className="text-blue-700 hover:text-blue-800 font-medium">
+          New to Wan Ofi Pharmacy?{" "}
+          <Link href="/login" className="text-blue-700 hover:text-blue-800 font-medium">
             Create an account
           </Link>
         </p>

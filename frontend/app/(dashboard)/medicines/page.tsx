@@ -44,6 +44,9 @@ import {
   Package,
   ChevronLeft,
   ChevronRight,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -51,6 +54,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 /* ------------------------- Helpers ------------------------- */
 
 const PAGE_SIZE = 10;
+
+type SortField = "name" | "category" | "quantity" | "unit" | "sellingPrice" | "costPrice" | "totalValue" | "expiryDate" | "createdAt";
+type SortDirection = "asc" | "desc";
 
 const formatPrice = (price: number) =>
   new Intl.NumberFormat("en-ET", {
@@ -84,7 +90,7 @@ function expiryBadge(expiryDate?: string) {
   const d = daysUntil(expiryDate);
   if (d === Infinity) return { label: "—", className: "" as const };
   if (d < 0) return { label: "Expired", className: "bg-red-50 text-red-700 border-red-200" as const };
-  if (d <= 30) return { label: "Expiring Soon", className: "bg-amber-50 text-amber-700 border-amber-200" as const };
+  if (d <= 180) return { label: "Expire Soon", className: "bg-amber-50 text-amber-700 border-amber-200" as const };
   return { label: "Good", className: "bg-emerald-50 text-emerald-700 border-emerald-200" as const };
 }
 
@@ -109,6 +115,15 @@ function getPageNumbers(totalPages: number, current: number, siblingCount = 1): 
   return pages;
 }
 
+function getSortIcon(field: SortField, currentField: SortField, currentDirection: SortDirection) {
+  if (field !== currentField) {
+    return <ArrowUpDown className="h-4 w-4 text-gray-400" />;
+  }
+  return currentDirection === "asc" ? 
+    <ArrowUp className="h-4 w-4 text-emerald-600" /> : 
+    <ArrowDown className="h-4 w-4 text-emerald-600" />;
+}
+
 /* ------------------------- Page ------------------------- */
 
 export default function MedicinesPage() {
@@ -119,6 +134,9 @@ export default function MedicinesPage() {
   const [stockFilter, setStockFilter] = useState<"all" | "in" | "low" | "out">("all");
   const [expiryFilter, setExpiryFilter] = useState<"all" | "good" | "soon" | "expired">("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
+
+  const [sortField, setSortField] = useState<SortField>("createdAt");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
 
   const [page, setPage] = useState(1);
 
@@ -161,14 +179,14 @@ export default function MedicinesPage() {
     return arr;
   }, [medicines]);
 
-  // Reset to first page when filters or search change
+  // Reset to first page when filters, search, or sorting change
   useEffect(() => {
     setPage(1);
-  }, [searchTerm, stockFilter, expiryFilter, categoryFilter]);
+  }, [searchTerm, stockFilter, expiryFilter, categoryFilter, sortField, sortDirection]);
 
   const filteredMedicines = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
-    return (medicines || [])
+    const filtered = (medicines || [])
       .filter((m) => {
         if (!q) return true;
         return (
@@ -188,8 +206,8 @@ export default function MedicinesPage() {
         const d = daysUntil(m.expiryDate);
         if (expiryFilter === "all") return true;
         if (expiryFilter === "expired") return d < 0;
-        if (expiryFilter === "soon") return d >= 0 && d <= 30;
-        if (expiryFilter === "good") return d > 30;
+        if (expiryFilter === "soon") return d >= 0 && d <= 180;
+        if (expiryFilter === "good") return d > 180;
         return true;
       })
       .filter((m) => {
@@ -197,7 +215,58 @@ export default function MedicinesPage() {
         const name = m.category?.name?.trim() || "Uncategorized";
         return name === categoryFilter;
       });
-  }, [medicines, searchTerm, stockFilter, expiryFilter, categoryFilter]);
+
+    // Sort the filtered results
+    return filtered.sort((a, b) => {
+      let aValue: any;
+      let bValue: any;
+
+      switch (sortField) {
+        case "name":
+          aValue = a.name.toLowerCase();
+          bValue = b.name.toLowerCase();
+          break;
+        case "category":
+          aValue = (a.category?.name || "Uncategorized").toLowerCase();
+          bValue = (b.category?.name || "Uncategorized").toLowerCase();
+          break;
+        case "quantity":
+          aValue = a.quantity;
+          bValue = b.quantity;
+          break;
+        case "unit":
+          aValue = (a.unit || "").toLowerCase();
+          bValue = (b.unit || "").toLowerCase();
+          break;
+        case "sellingPrice":
+          aValue = Number(a.sellingPrice);
+          bValue = Number(b.sellingPrice);
+          break;
+        case "costPrice":
+          aValue = Number(a.costPrice);
+          bValue = Number(b.costPrice);
+          break;
+        case "totalValue":
+          aValue = Number(a.costPrice) * a.quantity;
+          bValue = Number(b.costPrice) * b.quantity;
+          break;
+        case "expiryDate":
+          aValue = new Date(a.expiryDate || "").getTime();
+          bValue = new Date(b.expiryDate || "").getTime();
+          break;
+        case "createdAt":
+          aValue = new Date(a.createdAt || "").getTime();
+          bValue = new Date(b.createdAt || "").getTime();
+          break;
+        default:
+          return 0;
+      }
+
+      if (aValue < bValue) return sortDirection === "asc" ? -1 : 1;
+      if (aValue > bValue) return sortDirection === "asc" ? 1 : -1;
+      return 0;
+    });
+  }, [medicines, searchTerm, stockFilter, expiryFilter, categoryFilter, sortField, sortDirection]);
 
   const totalPages = Math.max(1, Math.ceil(filteredMedicines.length / PAGE_SIZE));
 
@@ -282,21 +351,33 @@ export default function MedicinesPage() {
     setEditingMedicine(null);
   };
 
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      // Toggle direction if same field
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      // Set new field with ascending direction
+      setSortField(field);
+      setSortDirection("asc");
+    }
+  };
+
   const handleExport = () => {
     if (!filteredMedicines.length) {
       toast.info("No data to export");
       return;
     }
     const rows = [
-      ["Name", "Category", "Quantity", "SellingPrice", "CostPrice", "ExpiryDate", "Barcode"],
+      ["Name", "Category", "Quantity", "Unit", "SellingPrice", "CostPrice", "TotalValue", "ExpiryDate"],
       ...filteredMedicines.map((m) => [
         m.name,
         m.category?.name || "",
         m.quantity.toString(),
+        m.unit || "",
         String(m.sellingPrice),
         String(m.costPrice),
+        String(m.costPrice * m.quantity),
         m.expiryDate ?? "",
-        m.barcode ?? "",
       ]),
     ];
     const csv = rows.map((r) => r.join(",")).join("\n");
@@ -304,7 +385,7 @@ export default function MedicinesPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "milkii-medicines.csv";
+    a.download = "wan-ofi-medicines.csv";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -314,6 +395,13 @@ export default function MedicinesPage() {
 
   const startItem = filteredMedicines.length ? (page - 1) * PAGE_SIZE + 1 : 0;
   const endItem = Math.min(page * PAGE_SIZE, filteredMedicines.length);
+
+  // Calculate total cost of all in-stock products
+  const totalStockValue = useMemo(() => {
+    return filteredMedicines.reduce((total, medicine) => {
+      return total + (medicine.costPrice * medicine.quantity);
+    }, 0);
+  }, [filteredMedicines]);
 
   return (
     <div className="space-y-6">
@@ -355,12 +443,28 @@ export default function MedicinesPage() {
         </div>
       </div>
 
+      {/* Summary Card */}
+      <Card className="overflow-hidden">
+        <div className="h-1 w-full bg-gradient-to-r from-emerald-400 via-blue-500 to-emerald-400" />
+        <CardContent className="pt-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Package className="h-6 w-6 text-emerald-600" />
+              <span className="text-lg font-medium">Total Stock On Hand</span>
+            </div>
+            <div className="text-2xl font-bold text-emerald-600">
+              {formatPrice(totalStockValue)}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Toolbar */}
       <Card className="overflow-hidden">
         <div className="h-1 w-full bg-gradient-to-r from-emerald-400 via-blue-500 to-emerald-400" />
         <CardContent>
           <CardTitle className="text-sm font-medium">Filters</CardTitle>
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
             {/* Search */}
             <div className="relative">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -397,8 +501,8 @@ export default function MedicinesPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="good">Good (&gt;30 days)</SelectItem>
-                  <SelectItem value="soon">Expiring Soon (≤30 days)</SelectItem>
+                  <SelectItem value="good">Good (&gt;6 months)</SelectItem>
+                  <SelectItem value="soon">Expire Soon (≤6 months)</SelectItem>
                   <SelectItem value="expired">Expired</SelectItem>
                 </SelectContent>
               </Select>
@@ -431,6 +535,8 @@ export default function MedicinesPage() {
                   setStockFilter("all");
                   setExpiryFilter("all");
                   setCategoryFilter("all");
+                  setSortField("createdAt");
+                  setSortDirection("desc");
                 }}
               >
                 Clear
@@ -445,15 +551,80 @@ export default function MedicinesPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead className="text-right">Qty</TableHead>
-              <TableHead className="text-right">Price</TableHead>
-              <TableHead className="text-right">Cost</TableHead>
-              <TableHead>Expiry</TableHead>
+              <TableHead 
+                className="cursor-pointer hover:bg-gray-50 select-none"
+                onClick={() => handleSort("name")}
+              >
+                <div className="flex items-center gap-2">
+                  Name
+                  {getSortIcon("name", sortField, sortDirection)}
+                </div>
+              </TableHead>
+              <TableHead 
+                className="cursor-pointer hover:bg-gray-50 select-none"
+                onClick={() => handleSort("category")}
+              >
+                <div className="flex items-center gap-2">
+                  Category
+                  {getSortIcon("category", sortField, sortDirection)}
+                </div>
+              </TableHead>
+              <TableHead 
+                className="text-right cursor-pointer hover:bg-gray-50 select-none"
+                onClick={() => handleSort("quantity")}
+              >
+                <div className="flex items-center justify-end gap-2">
+                  Qty
+                  {getSortIcon("quantity", sortField, sortDirection)}
+                </div>
+              </TableHead>
+              <TableHead 
+                className="cursor-pointer hover:bg-gray-50 select-none"
+                onClick={() => handleSort("unit")}
+              >
+                <div className="flex items-center gap-2">
+                  Unit
+                  {getSortIcon("unit", sortField, sortDirection)}
+                </div>
+              </TableHead>
+              <TableHead 
+                className="text-right cursor-pointer hover:bg-gray-50 select-none"
+                onClick={() => handleSort("sellingPrice")}
+              >
+                <div className="flex items-center justify-end gap-2">
+                  Price
+                  {getSortIcon("sellingPrice", sortField, sortDirection)}
+                </div>
+              </TableHead>
+              <TableHead 
+                className="text-right cursor-pointer hover:bg-gray-50 select-none"
+                onClick={() => handleSort("costPrice")}
+              >
+                <div className="flex items-center justify-end gap-2">
+                  Cost
+                  {getSortIcon("costPrice", sortField, sortDirection)}
+                </div>
+              </TableHead>
+              <TableHead 
+                className="text-right cursor-pointer hover:bg-gray-50 select-none"
+                onClick={() => handleSort("totalValue")}
+              >
+                <div className="flex items-center justify-end gap-2">
+                  Total Value
+                  {getSortIcon("totalValue", sortField, sortDirection)}
+                </div>
+              </TableHead>
+              <TableHead 
+                className="cursor-pointer hover:bg-gray-50 select-none"
+                onClick={() => handleSort("expiryDate")}
+              >
+                <div className="flex items-center gap-2">
+                  Expiry
+                  {getSortIcon("expiryDate", sortField, sortDirection)}
+                </div>
+              </TableHead>
               <TableHead>Stock</TableHead>
               <TableHead>Expiry Status</TableHead>
-              <TableHead>Barcode</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -461,13 +632,13 @@ export default function MedicinesPage() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={10} className="py-8 text-center text-gray-500">
+                <TableCell colSpan={11} className="py-8 text-center text-gray-500">
                   Loading medicines…
                 </TableCell>
               </TableRow>
             ) : !pageItems.length ? (
               <TableRow>
-                <TableCell colSpan={10} className="py-12">
+                <TableCell colSpan={11} className="py-12">
                   <div className="text-center">
                     <div className="mx-auto mb-3 h-10 w-10 rounded-lg grid place-items-center bg-gray-100 text-gray-500">
                       <Barcode className="h-5 w-5" />
@@ -505,15 +676,19 @@ export default function MedicinesPage() {
                     >
                       {m.quantity}
                     </TableCell>
+                    <TableCell className="text-gray-600">{m.unit || "—"}</TableCell>
                     <TableCell className="text-right">{formatPrice(m.sellingPrice)}</TableCell>
                     <TableCell className="text-right">{formatPrice(m.costPrice)}</TableCell>
+                    <TableCell className="text-right font-medium text-emerald-700">
+                      {formatPrice(m.costPrice * m.quantity)}
+                    </TableCell>
                     <TableCell>
                       <div className="flex flex-col">
                         <span
                           className={`${
                             until < 0
                               ? "text-red-700"
-                              : until <= 30
+                              : until <= 180
                               ? "text-amber-700"
                               : "text-gray-700"
                           }`}
@@ -533,7 +708,6 @@ export default function MedicinesPage() {
                     <TableCell>
                       <Badge className={`border ${e.className}`}>{e.label}</Badge>
                     </TableCell>
-                    <TableCell className="text-xs text-gray-500">{m.barcode || "—"}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
                         <Button

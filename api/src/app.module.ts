@@ -14,6 +14,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { CustomersModule } from './customers/customers.module';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
+import { CostsModule } from './costs/costs.module';
 import { getDatabaseConfig } from './config/database.config';
 
 @Module({
@@ -38,6 +39,7 @@ import { getDatabaseConfig } from './config/database.config';
     CustomersModule,
     UsersModule,
     AuthModule,
+    CostsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

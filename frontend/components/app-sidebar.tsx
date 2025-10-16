@@ -16,6 +16,7 @@ import {
   IconInnerShadowTop,
   IconChevronDown,
   IconChevronRight,
+  IconCoin,
 } from "@tabler/icons-react";
 
 import { NavUser } from "@/components/nav-user";
@@ -43,10 +44,10 @@ const data = {
     {
       items: [
         {
-          title: "Medicines",
+          title: "Products",
           icon: IconListDetails,
           items: [
-            { title: "List", url: "/medicines", icon: IconListDetails },
+            { title: "Medicines", url: "/medicines", icon: IconListDetails },
             { title: "Categories", url: "/categories", icon: IconFolder },
           ],
         },
@@ -70,6 +71,7 @@ const data = {
             { title: "New", url: "/sales", icon: IconReport },
           ],
         },
+        { title: "Costs", url: "/costs", icon: IconCoin },
         { title: "Customers", url: "/customers", icon: IconUsers },
         { title: "Suppliers", url: "/suppliers", icon: IconUsers },
         { title: "Users", url: "/users", icon: IconUsers },
@@ -77,9 +79,6 @@ const data = {
     },
   ],
   navSecondary: [
-    { title: "Settings", url: "#", icon: IconSettings },
-    { title: "Get Help", url: "#", icon: IconHelp },
-    { title: "Search", url: "#", icon: IconSearch },
   ],
 };
 
@@ -139,7 +138,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
                 asChild
                 className="data-[slot=sidebar-menu-button]:!p-1.5 hover:bg-transparent"
               >
-                <a href="/dashboard" aria-label="Damina Tech">
+                <a href="/dashboard" aria-label="Wan Ofi Pharmacy">
                   <div className="flex items-center gap-2">
                     {/* Logo mark */}
                     <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-emerald-500 to-blue-600 grid place-items-center text-white shadow-sm ring-1 ring-emerald-300/40">
@@ -147,7 +146,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
                     </div>
                     {/* Brand text */}
                     <span className="text-lg font-extrabold tracking-tight text-emerald-600">
-                      Waan <span className="text-emerald-700">Ofii</span>
+                      Wan Ofi <span className="text-emerald-700">Pharmacy</span>
                     </span>
                   </div>
                 </a>

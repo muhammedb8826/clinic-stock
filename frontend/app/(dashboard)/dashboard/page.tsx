@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { dashboardApi, DashboardStats, Sale } from "@/lib/api";
+import { dashboardApi, DashboardStats } from "@/lib/api";
 import {
   Card,
   CardContent,
@@ -25,7 +25,13 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  ResponsiveContainer
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  LineChart,
+  Line,
+  Legend
 } from "recharts";
 import {
   Package,
@@ -38,26 +44,125 @@ import {
   CalendarRange,
   ChevronLeft,
   ChevronRight,
-  Download,
+  DollarSign,
+  CheckCircle,
+  XCircle,
+  Clock,
 } from "lucide-react";
 import { toast } from "sonner";
 
+/* ----------------------- helpers ----------------------- */
+
+const n = (v: any, d = 0) => {
+  const num = Number(v);
+  return Number.isFinite(num) ? num : d;
+};
+
+const formatPrice = (price: number | undefined | null) =>
+  new Intl.NumberFormat("en-ET", {
+    style: "currency",
+    currency: "ETB",
+    maximumFractionDigits: 2,
+  }).format(n(price));
+
+const getCategoryColor = (index: number) => {
+  const colors = [
+    "#10b981", // emerald-500
+    "#2563eb", // blue-600
+    "#f59e0b", // amber-500
+    "#ef4444", // red-500
+    "#8b5cf6", // violet-500
+    "#06b6d4", // cyan-500
+    "#f97316", // orange-500
+    "#ec4899", // pink-500
+  ];
+  return colors[index % colors.length];
+};
+
+/** Normalize API payload so charts/cards never see null/strings */
+function normalizeStats(raw: any): DashboardStats & {
+  stockStatusOverview: { name: string; inStock: number; outOfStock: number; lowStock: number; expiringSoon: number };
+  monthlySales: Array<{ month: string; sales: number }>;
+  medicineByCategory: Array<{ name: string; count: number }>;
+  topSellingMedicines: Array<{ id: number; name: string; quantitySold: number; totalRevenue: number }>;
+  currentMonthSales?: { count: number; amount: number };
+} {
+  const inStockCount = n(raw?.inStockCount);
+  const outOfStockCount = n(raw?.outOfStockCount);
+  const lowStockCount = n(raw?.lowStockCount);
+  const expiringSoonCount = n(raw?.expiringSoonCount);
+
+  const stockStatusOverview = raw?.stockStatusOverview ?? {
+    name: "Stock",
+    inStock: inStockCount,
+    outOfStock: outOfStockCount,
+    lowStock: lowStockCount,
+    expiringSoon: expiringSoonCount,
+  };
+
+  const monthlySales = Array.isArray(raw?.monthlySales)
+    ? raw.monthlySales.map((m: any) => ({
+        month: String(m?.month ?? ""),
+        sales: n(m?.sales ?? m?.amount),
+      }))
+    : [];
+
+  const medicineByCategory = Array.isArray(raw?.medicineByCategory)
+    ? raw.medicineByCategory.map((c: any) => ({
+        name: String(c?.name ?? c?.category ?? "—"),
+        count: n(c?.count),
+      }))
+    : [];
+
+  const topSellingMedicines = Array.isArray(raw?.topSellingMedicines)
+    ? raw.topSellingMedicines.map((t: any) => ({
+        id: n(t?.id),
+        name: String(t?.name ?? "—"),
+        quantitySold: n(t?.quantitySold ?? t?.qty),
+        totalRevenue: n(t?.totalRevenue ?? t?.revenue),
+      }))
+    : [];
+
+  const currentMonthSales = raw?.currentMonthSales
+    ? { count: n(raw.currentMonthSales.count), amount: n(raw.currentMonthSales.amount) }
+    : undefined;
+
+  return {
+    ...raw,
+    inStockCount,
+    outOfStockCount,
+    lowStockCount,
+    expiringSoonCount,
+    stockStatusOverview,
+    monthlySales,
+    medicineByCategory,
+    topSellingMedicines,
+    totalMedicines: n(raw?.totalMedicines),
+    totalSales: n(raw?.totalSales),
+    totalSalesAmount: n(raw?.totalSalesAmount),
+    currentMonthProfit: n(raw?.currentMonthProfit),
+    totalProfit: n(raw?.totalProfit),
+    currentMonthSales,
+  };
+}
+
+/* ----------------------- page ----------------------- */
+
 export default function DashboardPage() {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [stats, setStats] = useState<ReturnType<typeof normalizeStats> | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
-  const [salesPage, setSalesPage] = useState(1);
-  const [allSalesPage, setAllSalesPage] = useState(1);
   const itemsPerPage = 5;
 
-  // Load stats
   const loadStats = async () => {
+    setLoading(true);
     try {
       const data = await dashboardApi.getStats();
-      setStats(data);
+      setStats(normalizeStats(data));
     } catch (error) {
       console.error("Failed to load dashboard stats:", error);
       toast.error("Failed to load dashboard data");
+      setStats(null);
     } finally {
       setLoading(false);
     }
@@ -68,38 +173,25 @@ export default function DashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Helpers
-  const formatPrice = (price: number | undefined | null) => {
-    const n = typeof price === "number" && !Number.isNaN(price) ? price : 0;
-    return new Intl.NumberFormat("en-ET", {
-      style: "currency",
-      currency: "ETB",
-      maximumFractionDigits: 2,
-    }).format(n);
-  };
-
-  const formatDate = (dateString: string) =>
-    new Date(dateString).toLocaleDateString("en-ET");
+  const monthChange = useMemo(() => {
+    const mm = stats?.monthlySales ?? [];
+    if (mm.length < 2) return null;
+    const cur = n(mm[mm.length - 1]?.sales);
+    const prev = n(mm[mm.length - 2]?.sales);
+    if (prev === 0) return null;
+    const pct = ((cur - prev) / prev) * 100;
+    return Number.isFinite(pct) ? pct : null;
+  }, [stats?.monthlySales]);
 
   const getCurrentPageItems = <T,>(items: T[], page: number) => {
     const startIndex = (page - 1) * itemsPerPage;
     return items.slice(startIndex, startIndex + itemsPerPage);
   };
 
-  const getTotalPages = (items: any[]) =>
-    Math.ceil((items?.length ?? 0) / itemsPerPage);
+  const getTotalPages = (items: any[]) => Math.ceil((items?.length ?? 0) / itemsPerPage);
 
-  const mm = stats?.monthlySales ?? [];
-  const monthChange = useMemo(() => {
-    if (mm.length < 2) return null;
-    const cur = Number(mm[mm.length - 1]?.sales ?? 0);
-    const prev = Number(mm[mm.length - 2]?.sales ?? 0);
-    if (prev === 0) return null;
-    const pct = ((cur - prev) / prev) * 100;
-    return Number.isFinite(pct) ? pct : null;
-  }, [mm]);
+  /* ----------------------- render ----------------------- */
 
-  // Loading skeleton
   if (loading) {
     return (
       <div className="space-y-6">
@@ -138,7 +230,7 @@ export default function DashboardPage() {
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Pharmacy Dashboard</h1>
           <p className="text-sm text-gray-500">
             Last updated: {new Date().toLocaleString("en-ET")}
           </p>
@@ -158,24 +250,45 @@ export default function DashboardPage() {
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard
-          title="All Medicines"
-          value={stats.totalMedicines ?? 0}
+          title="All Products"
+          value={stats.totalMedicines}
           subtitle="Total in inventory"
           icon={<Package className="h-5 w-5 text-emerald-600" />}
         />
         <KpiCard
+          title="In Stock"
+          value={stats.inStockCount}
+          subtitle="Available products"
+          icon={<CheckCircle className="h-5 w-5 text-green-600" />}
+          accent="green"
+        />
+        <KpiCard
+          title="Out of Stock"
+          value={stats.outOfStockCount}
+          subtitle="Zero quantity"
+          icon={<XCircle className="h-5 w-5 text-red-600" />}
+          accent="red"
+        />
+        <KpiCard
           title="Low Stock"
-          value={stats.lowStockCount ?? 0}
+          value={stats.lowStockCount}
           subtitle="Below threshold"
           icon={<AlertTriangle className="h-5 w-5 text-amber-600" />}
           accent="amber"
         />
         <KpiCard
           title="Expired"
-          value={stats.expiredCount ?? 0}
+          value={stats.expiredCount}
           subtitle="Need removal"
           icon={<ShieldAlert className="h-5 w-5 text-red-600" />}
           accent="red"
+        />
+        <KpiCard
+          title="Expire Soon"
+          value={stats.expiringSoonCount}
+          subtitle="Within 6 months"
+          icon={<Clock className="h-5 w-5 text-orange-600" />}
+          accent="orange"
         />
         <KpiCard
           title="Sales This Month"
@@ -184,58 +297,9 @@ export default function DashboardPage() {
           icon={<ShoppingBag className="h-5 w-5 text-blue-600" />}
           trend={monthChange}
         />
-      </div>
-
-      {/* Revenue Chart */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Revenue by Month</CardTitle>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => toast.info("Export coming soon")}
-            >
-              <Download className="h-4 w-4 mr-2" />
-              Export CSV
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="h-[320px]">
-            {stats.monthlySales?.length ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <RBarChart data={stats.monthlySales} barSize={32}>
-                  <defs>
-                    <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#10b981" />{/* emerald-500 */}
-                      <stop offset="100%" stopColor="#2563eb" />{/* blue-600 */}
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="month" tick={{ fill: "#6b7280", fontSize: 12 }} />
-                  <YAxis tick={{ fill: "#6b7280", fontSize: 12 }} />
-                  <Tooltip
-                    formatter={(v: any) => formatPrice(Number(v))}
-                    contentStyle={{ borderRadius: 12, borderColor: "#e5e7eb" }}
-                  />
-                  <Bar dataKey="sales" fill="url(#revGrad)" radius={[8, 8, 0, 0]} />
-                </RBarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex h-full items-center justify-center text-gray-500">
-                No sales data available for chart
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Totals Row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <TotalCard
           title="Total Sales"
-          value={stats.totalSales ?? 0}
+          value={stats.totalSales}
           sub={`${formatPrice(stats.totalSalesAmount)}`}
         />
         <TotalCard
@@ -249,6 +313,112 @@ export default function DashboardPage() {
           positive
         />
       </div>
+
+      {/* Charts Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Medicine by Category Pie Chart */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Medicine by Category</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[320px]">
+              {stats.medicineByCategory.length ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={stats.medicineByCategory}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, percent }) =>
+                        `${name} ${(percent * 100).toFixed(0)}%`
+                      }
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="count"
+                    >
+                      {stats.medicineByCategory.map((_: any, i: number) => (
+                        <Cell key={i} fill={getCategoryColor(i)} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex h-full items-center justify-center text-gray-500">
+                  No category data available
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Monthly Sales Trend Line Chart */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Monthly Sales Trend</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[320px]">
+              {stats.monthlySales.length ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={stats.monthlySales}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis dataKey="month" tick={{ fill: "#6b7280", fontSize: 12 }} />
+                    <YAxis tick={{ fill: "#6b7280", fontSize: 12 }} />
+                    <Tooltip
+                      formatter={(v: any) => formatPrice(Number(v))}
+                      contentStyle={{ borderRadius: 12, borderColor: "#e5e7eb" }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="sales"
+                      stroke="#10b981"
+                      strokeWidth={3}
+                      dot={{ fill: "#10b981", strokeWidth: 2, r: 4 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex h-full items-center justify-center text-gray-500">
+                  No sales trend data available
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Stock Status Overview */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Stock Status Overview</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[320px]">
+            {stats.stockStatusOverview ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <RBarChart data={[stats.stockStatusOverview]} barSize={60}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="name" tick={{ fill: "#6b7280", fontSize: 12 }} />
+                  <YAxis tick={{ fill: "#6b7280", fontSize: 12 }} />
+                  <Tooltip />
+                  <Bar dataKey="inStock" fill="#10b981" name="In Stock" />
+                  <Bar dataKey="outOfStock" fill="#ef4444" name="Out of Stock" />
+                  <Bar dataKey="lowStock" fill="#f59e0b" name="Low Stock" />
+                  <Bar dataKey="expiringSoon" fill="#f97316" name="Expiring Soon" />
+                </RBarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex h-full items-center justify-center text-gray-500">
+                No stock status data available
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Top Selling */}
       <Card>
@@ -265,13 +435,17 @@ export default function DashboardPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(getCurrentPageItems(stats.topSellingMedicines || [], currentPage)).map((m) => (
-                <TableRow key={m.id}>
-                  <TableCell className="font-medium">{m.name}</TableCell>
-                  <TableCell className="text-right">{m.quantitySold}</TableCell>
-                  <TableCell className="text-right">{formatPrice(m.totalRevenue)}</TableCell>
-                </TableRow>
-              ))}
+              {getCurrentPageItems(stats.topSellingMedicines || [], currentPage).map(
+                (m) => (
+                  <TableRow key={m.id}>
+                    <TableCell className="font-medium">{m.name}</TableCell>
+                    <TableCell className="text-right">{m.quantitySold}</TableCell>
+                    <TableCell className="text-right">
+                      {formatPrice(m.totalRevenue)}
+                    </TableCell>
+                  </TableRow>
+                )
+              )}
               {!stats.topSellingMedicines?.length && (
                 <TableRow>
                   <TableCell colSpan={3} className="text-center text-gray-500">
@@ -290,59 +464,6 @@ export default function DashboardPage() {
               onNext={() =>
                 setCurrentPage((p) =>
                   Math.min(getTotalPages(stats.topSellingMedicines || []), p + 1)
-                )
-              }
-            />
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Current Month Sales */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Current Month Sales</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Sale #</TableHead>
-                <TableHead>Customer</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-                <TableHead className="text-right">Profit</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {getCurrentPageItems(stats.currentMonthSales?.sales || [], salesPage).map((sale: Sale) => (
-                <TableRow key={sale.id}>
-                  <TableCell className="font-medium">{sale.saleNumber}</TableCell>
-                  <TableCell>{sale.customerName || "Walk-in"}</TableCell>
-                  <TableCell>{formatDate(sale.saleDate)}</TableCell>
-                  <TableCell className="text-right">{formatPrice(Number(sale.totalAmount))}</TableCell>
-                  <TableCell className="text-right">
-                    <ProfitBadge value={sale.calculatedProfit ?? 0} />
-                  </TableCell>
-                </TableRow>
-              ))}
-              {!stats.currentMonthSales?.sales?.length && (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center text-gray-500">
-                    No sales this month
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-
-          {getTotalPages(stats.currentMonthSales?.sales || []) > 1 && (
-            <Pager
-              page={salesPage}
-              totalPages={getTotalPages(stats.currentMonthSales?.sales || [])}
-              onPrev={() => setSalesPage((p) => Math.max(1, p - 1))}
-              onNext={() =>
-                setSalesPage((p) =>
-                  Math.min(getTotalPages(stats.currentMonthSales?.sales || []), p + 1)
                 )
               }
             />
@@ -368,25 +489,34 @@ function KpiCard({
   subtitle?: string;
   icon?: React.ReactNode;
   trend?: number | null;
-  accent?: "amber" | "red";
+  accent?: "amber" | "red" | "green" | "orange" | "purple";
 }) {
   const isUp = (trend ?? 0) >= 0;
+
+  const getAccentStyles = (accent?: string) => {
+    switch (accent) {
+      case "amber":
+        return "bg-amber-50 text-amber-700";
+      case "red":
+        return "bg-red-50 text-red-700";
+      case "green":
+        return "bg-green-50 text-green-700";
+      case "orange":
+        return "bg-orange-50 text-orange-700";
+      case "purple":
+        return "bg-purple-50 text-purple-700";
+      default:
+        return "bg-emerald-50 text-emerald-700";
+    }
+  };
+
   return (
     <Card className="overflow-hidden">
-      {/* Gradient accent */}
       <div className="h-1 w-full bg-gradient-to-r from-emerald-400 via-blue-500 to-emerald-400" />
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm font-medium">{title}</CardTitle>
-          <div
-            className={`h-8 w-8 rounded-lg grid place-items-center ${
-              accent === "amber"
-                ? "bg-amber-50 text-amber-700"
-                : accent === "red"
-                ? "bg-red-50 text-red-700"
-                : "bg-emerald-50 text-emerald-700"
-            }`}
-          >
+          <div className={`h-8 w-8 rounded-lg grid place-items-center ${getAccentStyles(accent)}`}>
             {icon}
           </div>
         </div>
@@ -436,23 +566,6 @@ function TotalCard({
         {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
       </CardContent>
     </Card>
-  );
-}
-
-function ProfitBadge({ value }: { value: number }) {
-  const positive = value >= 0;
-  return (
-    <Badge
-      variant={positive ? "default" : "destructive"}
-      className={positive ? "bg-emerald-50 text-emerald-700 border-emerald-200" : ""}
-    >
-      {positive ? "+" : ""}
-      {new Intl.NumberFormat("en-ET", {
-        style: "currency",
-        currency: "ETB",
-        maximumFractionDigits: 2,
-      }).format(value)}
-    </Badge>
   );
 }
 

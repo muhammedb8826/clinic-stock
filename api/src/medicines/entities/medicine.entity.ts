@@ -32,6 +32,10 @@ export class Medicine {
   @Column({ type: 'int', default: 0 })
   quantity: number;
 
+  @ApiProperty({ description: 'Unit of measurement', example: 'tablet' })
+  @Column({ nullable: true })
+  unit: string;
+
   @ApiProperty({ description: 'Selling price per unit in ETB', example: 25.50 })
   @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
   sellingPrice: number;
@@ -51,6 +55,10 @@ export class Medicine {
   @ApiProperty({ description: 'Whether the medicine is active', example: true })
   @Column({ default: true })
   isActive: boolean;
+
+  @ApiProperty({ description: 'Whether the medicine is visible on public website', example: true })
+  @Column({ default: true })
+  isPublic: boolean;
 
   @ApiProperty({ description: 'Creation timestamp', example: '2024-01-15T10:30:00Z' })
   @CreateDateColumn()

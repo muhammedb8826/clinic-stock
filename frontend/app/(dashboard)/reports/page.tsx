@@ -30,7 +30,7 @@ import {
   CartesianGrid,
   Tooltip,
 } from "recharts";
-import { Download, CalendarRange, TrendingUp, DollarSign, RefreshCcw, Filter } from "lucide-react";
+import { Download, CalendarRange, TrendingUp, DollarSign, RefreshCcw, Filter, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 
 /* ----------------------------- Types ----------------------------- */
@@ -53,6 +53,10 @@ type ProductRow = {
   revenue: number;
   profit: number;
 };
+
+/* ----------------------------- Constants --------------------------- */
+
+const PRODUCTS_PER_PAGE = 10;
 
 /* ----------------------------- Helpers --------------------------- */
 
@@ -124,6 +128,9 @@ export default function ReportsPage() {
     start: fmtDay(startOfMonth(new Date())),
     end: fmtDay(new Date()),
   });
+  
+  // pagination for products table
+  const [currentPage, setCurrentPage] = useState(1);
 
   // load once; we filter client-side
   const loadAll = useCallback(async () => {
@@ -280,6 +287,18 @@ export default function ReportsPage() {
     rows.sort((a, b) => b.qty - a.qty);
     return rows;
   }, [filteredSales, meds]);
+
+  /* ---------- Pagination logic for products table ---------- */
+
+  const totalPages = Math.ceil(productRows.length / PRODUCTS_PER_PAGE);
+  const startIndex = (currentPage - 1) * PRODUCTS_PER_PAGE;
+  const endIndex = startIndex + PRODUCTS_PER_PAGE;
+  const paginatedProductRows = productRows.slice(startIndex, endIndex);
+
+  // Reset to page 1 when productRows change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [productRows.length]);
 
   /* ---------- Export CSV (products table) ---------- */
 
@@ -488,8 +507,8 @@ export default function ReportsPage() {
                     Loading data…
                   </TableCell>
                 </TableRow>
-              ) : productRows.length ? (
-                productRows.map((r) => (
+              ) : paginatedProductRows.length ? (
+                paginatedProductRows.map((r) => (
                   <TableRow key={r.medicineId}>
                     <TableCell className="font-medium">{r.name}</TableCell>
                     <TableCell className="text-right">{r.qty.toLocaleString()}</TableCell>
@@ -508,6 +527,48 @@ export default function ReportsPage() {
               )}
             </TableBody>
           </Table>
+          
+          {/* Pagination Controls */}
+          {productRows.length > PRODUCTS_PER_PAGE && (
+            <div className="flex items-center justify-between px-6 py-4 border-t">
+              <div className="text-sm text-gray-500">
+                Showing {startIndex + 1} to {Math.min(endIndex, productRows.length)} of {productRows.length} products
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Previous
+                </Button>
+                <div className="flex items-center space-x-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <Button
+                      key={page}
+                      variant={currentPage === page ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setCurrentPage(page)}
+                      className="w-8 h-8 p-0"
+                    >
+                      {page}
+                    </Button>
+                  ))}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

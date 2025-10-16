@@ -36,6 +36,10 @@ export class Sale {
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
   tax: number;
 
+  @ApiPropertyOptional()
+  @Column({ nullable: true })
+  paymentMethod?: string;
+
   @OneToMany(() => SaleItem, (item) => item.sale, { cascade: true })
   items: SaleItem[];
 
