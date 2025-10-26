@@ -63,9 +63,9 @@ class NotificationService {
   // Check if backend server is available
   private async checkServerAvailability(): Promise<boolean> {
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://wanofi-api.daminaa.org';
       // Try to fetch the test endpoint first
-      const response = await fetch(`${apiUrl}/api/notifications`, { 
+      const response = await fetch(`${apiUrl}/notifications`, { 
         method: 'GET',
         mode: 'cors'
       });
@@ -90,7 +90,7 @@ class NotificationService {
       return;
     }
 
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://wanofi-api.daminaa.org';
     this.socket = io(`${apiUrl}/notifications`, {
       transports: ['websocket', 'polling'],
       timeout: 20000,
@@ -299,8 +299,8 @@ class NotificationService {
   // Get notification statistics from server
   async getNotificationStats(): Promise<NotificationStats | null> {
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-      const response = await fetch(`${apiUrl}/api/notifications/stats`, {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://wanofi-api.daminaa.org';
+      const response = await fetch(`${apiUrl}/notifications/stats`, {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -321,8 +321,8 @@ class NotificationService {
   // Manually trigger inventory checks
   async triggerInventoryCheck(): Promise<boolean> {
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-      const response = await fetch(`${apiUrl}/api/notifications/check-inventory`, {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://wanofi-api.daminaa.org';
+      const response = await fetch(`${apiUrl}/notifications/check-inventory`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

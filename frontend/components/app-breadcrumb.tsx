@@ -126,7 +126,13 @@ export function AppBreadcrumb() {
   const router = useRouter();
 
   // Use real-time notification stats
-  const { stats: realTimeStats, isLoading: statsLoading } = useNotificationStats();
+  const { stats: realTimeStats } = useNotificationStats();
+
+  // Local UI & data state
+  const [meds, setMeds] = useState<Medicine[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [refreshedAt, setRefreshedAt] = useState<Date | null>(null);
+  const [open, setOpen] = useState(false);
 
   // --------------------- Breadcrumb generation --------------------- //
   const generateBreadcrumbs = (): CrumbItem[] => {
@@ -310,10 +316,10 @@ export function AppBreadcrumb() {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="icon" className="relative h-9 w-9 rounded-full">
-              {user?.avatar ? (
+              {(user as any)?.avatar ? (
                 <Avatar className="h-8 w-8">
-                  <AvatarImage src={user.avatar} alt={user.name} />
-                  <AvatarFallback>{user.name?.slice(0, 2)?.toUpperCase() || "US"}</AvatarFallback>
+                  <AvatarImage src={(user as any).avatar} alt={user?.name} />
+                  <AvatarFallback>{user?.name?.slice(0, 2)?.toUpperCase() || "US"}</AvatarFallback>
                 </Avatar>
               ) : (
                 <User className="h-5 w-5 text-gray-900" />
