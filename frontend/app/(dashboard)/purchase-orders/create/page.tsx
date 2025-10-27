@@ -8,6 +8,7 @@ import {
   PurchaseOrderStatus,
   medicineApi,
   Medicine,
+  CreateMedicineDto,
   supplierApi,
   Supplier,
 } from "@/lib/api";
@@ -23,6 +24,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
   Card,
   CardContent,
   CardHeader,
@@ -36,12 +50,14 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Plus, Minus, ArrowLeft } from "lucide-react";
+import { Plus, Minus, ArrowLeft, Check, ChevronsUpDown } from "lucide-react";
 import { toast } from "sonner";
+import { MedicineForm } from "@/components/medicine-form";
 
 interface PurchaseOrderItem {
   medicineId: number;
   quantity: number;
+  unit?: string;
   medicine?: Medicine;
 }
 
@@ -69,6 +85,12 @@ export default function CreatePurchaseOrderPage() {
     address: "",
   });
   const [creatingSupplier, setCreatingSupplier] = useState(false);
+
+  // Medicine creation modal state
+  const [medicineModalOpen, setMedicineModalOpen] = useState(false);
+  const [newMedicineData, setNewMedicineData] = useState<Partial<CreateMedicineDto> | null>(null);
+  const [creatingMedicine, setCreatingMedicine] = useState(false);
+  const [selectedItemIndex, setSelectedItemIndex] = useState<number | null>(null);
 
   useEffect(() => {
     loadData();
@@ -103,6 +125,10 @@ export default function CreatePurchaseOrderPage() {
     if (field === "medicineId") {
       const med = medicines.find((m) => m.id === parseInt(String(value)));
       next[index].medicine = med;
+      // Auto-populate unit from medicine if available
+      if (med && (med as any).unit) {
+        next[index].unit = (med as any).unit;
+      }
     }
     setItems(next);
   };
@@ -123,6 +149,86 @@ export default function CreatePurchaseOrderPage() {
     } finally {
       setCreatingSupplier(false);
     }
+  };
+
+  const handleNewMedicineClick = (index: number) => {
+    const item = items[index];
+    if (!item.medicine) return;
+
+    // Set up the medicine form with pre-filled data
+    setNewMedicineData({
+      name: item.medicine.name,
+      categoryId: item.medicine.categoryId,
+      // Other fields will be filled by the user
+    });
+    setSelectedItemIndex(index);
+    setMedicineModalOpen(true);
+  };
+
+  // Helper function to format medicine display name with expiry date
+  const formatMedicineDisplayName = (medicine: Medicine): string => {
+    if (medicine.expiryDate) {
+      const expiry = new Date(medicine.expiryDate);
+      const formattedExpiry = expiry.toLocaleDateString('en-GB', { 
+        day: '2-digit', 
+        month: '2-digit', 
+        year: 'numeric' 
+      });
+      return `${medicine.name} (Exp: ${formattedExpiry})`;
+    }
+    return medicine.name;
+  };
+
+  const handleMedicineSubmit = async (data: CreateMedicineDto | any) => {
+    if (selectedItemIndex === null) return;
+    
+    setCreatingMedicine(true);
+    try {
+      // Create the new medicine
+      const newMedicine = await medicineApi.create(data as CreateMedicineDto);
+      console.log('Created medicine:', newMedicine);
+      
+      // Refresh the medicines list
+      const medicinesResponse = await medicineApi.getAll({ page: 1, limit: 1000, isActive: true });
+      setMedicines(medicinesResponse.medicines || []);
+      
+      // Update the item to use the new medicine with default values
+      const updatedItems = [...items];
+      const medicineUnit = (newMedicine as any).unit || "";
+      
+      console.log('Updating item at index:', selectedItemIndex);
+      console.log('Previous item:', updatedItems[selectedItemIndex]);
+      
+      // Update the specific item with all necessary fields
+      updatedItems[selectedItemIndex] = {
+        medicineId: newMedicine.id,
+        quantity: 1, // Set default quantity to 1
+        unit: medicineUnit, // Auto-populate unit if available
+        medicine: newMedicine, // Set the full medicine object
+      };
+      
+      console.log('Updated item:', updatedItems[selectedItemIndex]);
+      
+      setItems(updatedItems);
+      
+      // Close modal and reset state
+      setMedicineModalOpen(false);
+      setNewMedicineData(null);
+      setSelectedItemIndex(null);
+      
+      toast.success("New medicine created and added to order");
+    } catch (error) {
+      console.error("Failed to create medicine:", error);
+      toast.error("Failed to create medicine");
+    } finally {
+      setCreatingMedicine(false);
+    }
+  };
+
+  const handleMedicineCancel = () => {
+    setMedicineModalOpen(false);
+    setNewMedicineData(null);
+    setSelectedItemIndex(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -257,6 +363,27 @@ export default function CreatePurchaseOrderPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Medicine Creation Modal */}
+      <Dialog open={medicineModalOpen} onOpenChange={setMedicineModalOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Create New Medicine Variant</DialogTitle>
+          </DialogHeader>
+          
+          {newMedicineData && (
+            <MedicineForm
+              initialData={{
+                id: 0,
+                name: newMedicineData.name || "",
+                categoryId: newMedicineData.categoryId || 0,
+              } as Medicine}
+              onSubmit={handleMedicineSubmit}
+              onCancel={handleMedicineCancel}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Order Details */}
         <Card className="overflow-hidden">
@@ -372,43 +499,93 @@ export default function CreatePurchaseOrderPage() {
                   >
                     <div className="flex-1">
                       <Label className="sr-only">Medicine</Label>
-                      <Select
-                        value={item.medicineId ? String(item.medicineId) : ""}
-                        onValueChange={(value) =>
-                          updateItem(index, "medicineId", parseInt(value))
-                        }
-                      >
-                        <SelectTrigger className="h-10">
-                          <SelectValue placeholder="Select medicine" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {medicines.map((m) => (
-                            <SelectItem key={m.id} value={m.id.toString()}>
-                              {m.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            className="w-full justify-between h-10"
+                          >
+                            {item.medicine
+                              ? formatMedicineDisplayName(item.medicine)
+                              : "Select medicine..."}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[400px] p-0">
+                          <Command>
+                            <CommandInput placeholder="Search medicine..." />
+                            <CommandList>
+                              <CommandEmpty>No medicine found.</CommandEmpty>
+                              <CommandGroup>
+                                {medicines.map((m) => (
+                                  <CommandItem
+                                    key={m.id}
+                                    value={formatMedicineDisplayName(m)}
+                                    onSelect={() => {
+                                      updateItem(index, "medicineId", m.id);
+                                    }}
+                                  >
+                                    <Check
+                                      className={`mr-2 h-4 w-4 ${
+                                        item.medicineId === m.id
+                                          ? "opacity-100"
+                                          : "opacity-0"
+                                      }`}
+                                    />
+                                    {formatMedicineDisplayName(m)}
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
 
                       {item.medicine && (
-                        <div className="mt-2 text-sm text-gray-600">
-                          <Badge variant="outline" className="mr-2">
-                            {item.medicine.category?.name || "No Category"}
-                          </Badge>
-                          <span>
-                            Stock:{" "}
-                            <span
-                              className={
-                                item.medicine.quantity <= 10
-                                  ? "text-amber-700 font-medium"
-                                  : "text-emerald-700 font-medium"
-                              }
-                            >
-                              {item.medicine.quantity}
+                        <div className="mt-2 flex items-center justify-between">
+                          <div className="text-sm text-gray-600">
+                            <Badge variant="outline" className="mr-2">
+                              {item.medicine.category?.name || "No Category"}
+                            </Badge>
+                            <span>
+                              Stock:{" "}
+                              <span
+                                className={
+                                  item.medicine.quantity <= 10
+                                    ? "text-amber-700 font-medium"
+                                    : "text-emerald-700 font-medium"
+                                }
+                              >
+                                {item.medicine.quantity}
+                              </span>
                             </span>
-                          </span>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleNewMedicineClick(index)}
+                            className="text-xs"
+                          >
+                            New Medicine?
+                          </Button>
                         </div>
                       )}
+                    </div>
+
+                    {/* Unit field */}
+                    <div className="w-full md:w-32">
+                      <Label htmlFor={`unit-${index}`}>Unit</Label>
+                      <Input
+                        id={`unit-${index}`}
+                        value={item.unit || ""}
+                        onChange={(e) =>
+                          updateItem(index, "unit", e.target.value)
+                        }
+                        placeholder="e.g., tablet, ml"
+                        className="h-10"
+                      />
                     </div>
 
                     <div className="w-full md:w-40">

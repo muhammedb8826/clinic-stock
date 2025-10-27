@@ -226,7 +226,10 @@ export default function ReportsPage() {
           const med = meds.find((m) => m.id === it.medicineId);
           const cost = Number(med?.costPrice) || 0;
           const unit = Number(it.unitPrice) || 0;
-          profit += (unit - cost) * (it.quantity || 0);
+          const discount = Number(it.discount || 0);
+          const qty = it.quantity || 0;
+          const profitPerUnit = unit - discount - cost;
+          profit += profitPerUnit * qty;
         }
       }
     }
@@ -265,9 +268,10 @@ export default function ReportsPage() {
         const name = med?.name || `#${it.medicineId}`;
         const cost = Number(med?.costPrice) || 0;
         const unit = Number(it.unitPrice) || 0;
+        const discount = Number(it.discount || 0);
         const qty = it.quantity || 0;
-        const revenue = unit * qty;
-        const profit = (unit - cost) * qty;
+        const revenue = (unit - discount) * qty;
+        const profit = (unit - discount - cost) * qty;
 
         const cur = agg.get(it.medicineId) || {
           medicineId: it.medicineId,
@@ -432,6 +436,7 @@ export default function ReportsPage() {
           value={formatPrice(profitTotal)}
           subtitle="Profit for the selected period"
           icon={<CalendarRange className="h-4 w-4 text-emerald-700" />}
+          valueColor={profitTotal < 0 ? "text-red-600" : undefined}
         />
       </div>
 
@@ -513,7 +518,7 @@ export default function ReportsPage() {
                     <TableCell className="font-medium">{r.name}</TableCell>
                     <TableCell className="text-right">{r.qty.toLocaleString()}</TableCell>
                     <TableCell className="text-right">{formatPrice(r.revenue)}</TableCell>
-                    <TableCell className="text-right text-emerald-700">
+                    <TableCell className={`text-right ${r.profit < 0 ? 'text-red-600' : 'text-emerald-700'}`}>
                       {formatPrice(r.profit)}
                     </TableCell>
                   </TableRow>
@@ -582,11 +587,13 @@ function SummaryCard({
   value,
   subtitle,
   icon,
+  valueColor,
 }: {
   title: string;
   value: string;
   subtitle?: string;
   icon?: React.ReactNode;
+  valueColor?: string;
 }) {
   return (
     <Card className="overflow-hidden">
@@ -600,7 +607,7 @@ function SummaryCard({
         </div>
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold">{value}</div>
+        <div className={`text-2xl font-bold ${valueColor || ""}`}>{value}</div>
         {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
       </CardContent>
     </Card>

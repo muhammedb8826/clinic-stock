@@ -66,6 +66,7 @@ interface SaleItem {
   medicineId: number;
   quantity: number;
   unitPrice: number;
+  discount: number; // Discount per unit
   totalPrice: number;
   medicine?: Medicine;
 }
@@ -246,10 +247,17 @@ export default function SalesPage() {
     [customers, customerSearchTerm]
   );
 
-  const totalAmount = saleItems.reduce(
-    (sum, it) => sum + (Number(it.totalPrice) || 0),
-    0
-  );
+  const totalAmount = useMemo(() => {
+    const subtotal = saleItems.reduce((sum, it) => {
+      const discountedPrice = Math.max(0, Number(it.unitPrice) - (it.discount || 0));
+      return sum + (discountedPrice * it.quantity);
+    }, 0);
+    return subtotal;
+  }, [saleItems]);
+
+  const totalDiscount = useMemo(() => {
+    return saleItems.reduce((sum, it) => sum + ((it.discount || 0) * it.quantity), 0);
+  }, [saleItems]);
 
   /* ------------------------- Handlers ------------------------- */
 
@@ -272,6 +280,7 @@ export default function SalesPage() {
         medicineId: medicine.id,
         quantity: 1,
         unitPrice,
+        discount: 0,
         totalPrice: unitPrice,
         medicine,
       },
@@ -295,7 +304,7 @@ export default function SalesPage() {
           ? {
               ...it,
               quantity,
-              totalPrice: Number(it.unitPrice) * quantity,
+              totalPrice: (Number(it.unitPrice) - (it.discount || 0)) * quantity,
             }
           : it
       )
@@ -304,6 +313,22 @@ export default function SalesPage() {
 
   const removeItem = (medicineId: number) =>
     setSaleItems((prev) => prev.filter((it) => it.medicineId !== medicineId));
+
+  const updateItemDiscount = (medicineId: number, discount: number) => {
+    setSaleItems((prev) =>
+      prev.map((it) => {
+        if (it.medicineId === medicineId) {
+          const discountedPrice = Math.max(0, Number(it.unitPrice) - (discount || 0));
+          return {
+            ...it,
+            discount: Math.max(0, discount),
+            totalPrice: discountedPrice * it.quantity,
+          };
+        }
+        return it;
+      })
+    );
+  };
 
   const handleCustomerSelect = (customerId: string) => {
     if (customerId === "walk-in") {
@@ -375,6 +400,8 @@ export default function SalesPage() {
 
     setLoading(true);
     try {
+      const totalDiscount = saleItems.reduce((sum, it) => sum + ((it.discount || 0) * it.quantity), 0);
+      
       const payload: CreateSaleDto = {
         saleDate: new Date().toISOString(),
         customerName: customerName.trim(),
@@ -382,7 +409,8 @@ export default function SalesPage() {
         items: saleItems.map((it) => ({
           medicineId: it.medicineId,
           quantity: it.quantity,
-          unitPrice: Number(it.unitPrice),
+          unitPrice: it.unitPrice,
+          discount: it.discount || 0,
         })),
       };
 
@@ -773,60 +801,88 @@ export default function SalesPage() {
                   {saleItems.map((it) => (
                     <div
                       key={it.medicineId}
-                      className="flex items-center justify-between p-2 border rounded text-sm bg-white"
+                      className="flex flex-col gap-2 p-2 border rounded text-sm bg-white"
                     >
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium truncate">{it.medicine?.name}</div>
-                        <div className="text-xs text-gray-500">
-                          {formatETB(it.unitPrice)} each
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium truncate">{it.medicine?.name}</div>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-xs text-gray-500">
+                              Original: {formatETB(it.unitPrice)}
+                            </span>
+                          </div>
                         </div>
-                      </div>
 
-                      <div className="flex items-center gap-2">
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-6 w-6 p-0 hover:border-emerald-300"
+                              onClick={() => updateItemQuantity(it.medicineId, it.quantity - 1)}
+                              disabled={it.quantity <= 1}
+                              aria-label="Decrease"
+                            >
+                              <Minus className="h-3 w-3" />
+                            </Button>
+                            <span className="w-6 text-center text-xs">{it.quantity}</span>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-6 w-6 p-0 hover:border-emerald-300"
+                              onClick={() => updateItemQuantity(it.medicineId, it.quantity + 1)}
+                              disabled={it.quantity >= (it.medicine?.quantity || 0)}
+                              aria-label="Increase"
+                            >
+                              <Plus className="h-3 w-3" />
+                            </Button>
+                          </div>
+
+                          <div className="font-medium text-xs w-20 text-right">
+                            {formatETB(it.totalPrice)}
+                          </div>
+
                           <Button
                             size="sm"
-                            variant="outline"
-                            className="h-6 w-6 p-0 hover:border-emerald-300"
-                            onClick={() => updateItemQuantity(it.medicineId, it.quantity - 1)}
-                            disabled={it.quantity <= 1}
-                            aria-label="Decrease"
+                            variant="destructive"
+                            className="h-6 w-6 p-0"
+                            onClick={() => removeItem(it.medicineId)}
+                            aria-label="Remove"
                           >
                             <Minus className="h-3 w-3" />
                           </Button>
-                          <span className="w-6 text-center text-xs">{it.quantity}</span>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-6 w-6 p-0 hover:border-emerald-300"
-                            onClick={() => updateItemQuantity(it.medicineId, it.quantity + 1)}
-                            disabled={it.quantity >= (it.medicine?.quantity || 0)}
-                            aria-label="Increase"
-                          >
-                            <Plus className="h-3 w-3" />
-                          </Button>
                         </div>
-
-                        <div className="font-medium text-xs w-20 text-right">
-                          {formatETB(it.totalPrice)}
-                        </div>
-
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          className="h-6 w-6 p-0"
-                          onClick={() => removeItem(it.medicineId)}
-                          aria-label="Remove"
-                        >
-                          <Minus className="h-3 w-3" />
-                        </Button>
+                      </div>
+                      
+                      {/* Discount input */}
+                      <div className="flex items-center gap-2">
+                        <Label className="text-xs text-gray-600 w-16">Discount:</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          max={it.unitPrice}
+                          step="0.01"
+                          placeholder="0.00"
+                          value={it.discount}
+                          onChange={(e) => updateItemDiscount(it.medicineId, Number(e.target.value) || 0)}
+                          className="h-7 text-xs"
+                        />
+                        <span className="text-xs text-gray-500">ETB/unit</span>
                       </div>
                     </div>
                   ))}
                 </div>
 
-                <div className="border-t pt-2">
-                  <div className="flex justify-between items-center">
+                <div className="border-t pt-2 space-y-1">
+                  {saleItems.some(it => (it.discount || 0) > 0) && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Total Discount:</span>
+                      <span className="text-sm text-red-600">
+                        -{formatETB(saleItems.reduce((sum, it) => sum + ((it.discount || 0) * it.quantity), 0))}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-center pt-1 border-t">
                     <span className="font-bold">Total:</span>
                     <span className="text-lg font-bold text-emerald-700">
                       {formatETB(totalAmount)}

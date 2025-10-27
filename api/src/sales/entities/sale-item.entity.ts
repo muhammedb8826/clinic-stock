@@ -1,5 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Sale } from './sale.entity';
 import { Medicine } from '../../medicines/entities/medicine.entity';
 
@@ -36,6 +36,10 @@ export class SaleItem {
   @ApiProperty()
   @Column({ type: 'decimal', precision: 12, scale: 2 })
   totalPrice: number;
+
+  @ApiPropertyOptional()
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  discount: number;
 }
 
 

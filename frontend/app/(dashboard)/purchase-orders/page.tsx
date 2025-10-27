@@ -26,10 +26,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Search, Eye } from "lucide-react";
+import { Plus, Search, Eye, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { PurchaseOrderModal } from "@/components/purchase-order-modal";
 import { InvoicePrompt } from "@/components/invoice-prompt";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
 /* ---------- helpers ---------- */
 
@@ -76,6 +84,8 @@ export default function PurchaseOrdersPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isInvoicePromptOpen, setIsInvoicePromptOpen] = useState(false);
   const [orderToReceive, setOrderToReceive] = useState<PurchaseOrder | null>(null);
+  const [deleteOrderId, setDeleteOrderId] = useState<number | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   useEffect(() => {
     loadPurchaseOrders();
@@ -151,6 +161,31 @@ export default function PurchaseOrdersPage() {
     }
     setIsInvoicePromptOpen(false);
     setOrderToReceive(null);
+  };
+
+  const handleDelete = (orderId: number) => {
+    setDeleteOrderId(orderId);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteOrderId) return;
+
+    try {
+      await purchaseOrderApi.delete(deleteOrderId);
+      toast.success("Purchase order deleted successfully");
+      loadPurchaseOrders();
+    } catch (error: any) {
+      console.error("Failed to delete purchase order:", error);
+      if (error.response?.status === 400) {
+        toast.error("Cannot delete received purchase order");
+      } else {
+        toast.error("Failed to delete purchase order");
+      }
+    } finally {
+      setIsDeleteDialogOpen(false);
+      setDeleteOrderId(null);
+    }
   };
 
   const filteredPurchaseOrders = purchaseOrders.filter((order) => {
@@ -320,6 +355,16 @@ export default function PurchaseOrdersPage() {
                         <Eye className="h-4 w-4" />
                       </Button>
 
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                        title="Delete Order"
+                        onClick={() => handleDelete(order.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+
                       {/* inline status changer */}
                       <Select
                         value={order.status}
@@ -375,6 +420,32 @@ export default function PurchaseOrdersPage() {
         onConfirm={handleInvoiceConfirm}
         orderNumber={orderToReceive?.orderNumber || ""}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Purchase Order</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this purchase order? This action cannot be undone. Received orders cannot be deleted.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsDeleteDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDelete}
+            >
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

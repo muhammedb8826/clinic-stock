@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://wanofi-api.daminaa.org';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+// const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://wanofi-api.daminaa.org';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -414,6 +415,9 @@ export const purchaseOrderApi = {
     const res = await api.patch(`/purchase-orders/${id}/payment-status`, { paymentStatus });
     return res.data;
   },
+  delete: async (id: number): Promise<void> => {
+    await api.delete(`/purchase-orders/${id}`);
+  },
 };
 
 // Inventory
@@ -443,7 +447,7 @@ export const inventoryApi = {
 };
 
 // Sales
-export interface SaleItemDto { medicineId: number; quantity: number; unitPrice: number }
+export interface SaleItemDto { medicineId: number; quantity: number; unitPrice: number; discount?: number }
 export interface CreateSaleDto {
   saleDate: string;
   customerName?: string;
@@ -453,12 +457,23 @@ export interface CreateSaleDto {
   paymentMethod?: string;
   items: SaleItemDto[];
 }
-export interface SaleItem { id: number; saleId: number; medicineId: number; quantity: number; unitPrice: number; totalPrice: number }
+export interface UpdateSaleDto {
+  customerName?: string;
+  customerPhone?: string;
+  discount?: number;
+  tax?: number;
+  paymentMethod?: string;
+  saleDate?: string;
+  items?: SaleItemDto[];
+}
+export interface SaleItem { id: number; saleId: number; medicineId: number; quantity: number; unitPrice: number; totalPrice: number; discount: number }
 export interface Sale { id: number; saleNumber: string; saleDate: string; customerName?: string; customerPhone?: string; totalAmount: number; discount: number; tax: number; paymentMethod?: string; items: SaleItem[]; calculatedProfit?: number }
 
 export const salesApi = {
   create: async (data: CreateSaleDto): Promise<Sale> => { const res = await api.post('/sales', data); return res.data },
   list: async (): Promise<Sale[]> => { const res = await api.get('/sales'); return res.data },
+  update: async (id: number, data: UpdateSaleDto): Promise<Sale> => { const res = await api.put(`/sales/${id}`, data); return res.data },
+  delete: async (id: number): Promise<void> => { await api.delete(`/sales/${id}`) },
   reportDaily: async (params?: { start?: string; end?: string }): Promise<Array<{ day: string; total: string }>> => { const res = await api.get('/sales/reports/daily', { params }); return res.data },
   reportWeekly: async (params?: { start?: string; end?: string }): Promise<Array<{ week: string; total: string }>> => { const res = await api.get('/sales/reports/weekly', { params }); return res.data },
   reportMonthly: async (params?: { year?: number }): Promise<Array<{ month: string; total: string }>> => { const res = await api.get('/sales/reports/monthly', { params }); return res.data },

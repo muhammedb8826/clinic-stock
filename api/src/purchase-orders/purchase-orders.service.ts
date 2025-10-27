@@ -181,6 +181,25 @@ export class PurchaseOrdersService {
     po.paymentStatus = paymentStatus;
     return this.poRepo.save(po);
   }
+
+  async delete(id: number): Promise<void> {
+    const po = await this.poRepo.findOne({ 
+      where: { id },
+      relations: ['items'] 
+    });
+    
+    if (!po) {
+      throw new NotFoundException('Purchase order not found');
+    }
+
+    // Check if the order has been received (has inventory)
+    if (po.status === PurchaseOrderStatus.RECEIVED) {
+      throw new BadRequestException('Cannot delete a received purchase order');
+    }
+
+    // Delete the purchase order (items will be deleted by cascade)
+    await this.poRepo.delete(id);
+  }
 }
 
 
