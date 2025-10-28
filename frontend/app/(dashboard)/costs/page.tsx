@@ -69,8 +69,26 @@ export default function CostsPage() {
   const [customStartDate, setCustomStartDate] = useState("");
   const [customEndDate, setCustomEndDate] = useState("");
   
-  // Categories
+  // Static cost categories
+  const staticCategories = [
+    "Rent",
+    "Utilities",
+    "Salary",
+    "Maintenance",
+    "Insurance",
+    "Office Supplies",
+    "Marketing",
+    "Transportation",
+    "Equipment",
+    "Other"
+  ];
+  
+  // Categories from API combined with static categories
   const [categories, setCategories] = useState<string[]>([]);
+  const allCategories = useMemo(() => {
+    const uniqueCategories = new Set([...staticCategories, ...categories]);
+    return Array.from(uniqueCategories).sort();
+  }, [categories]);
 
   const formatPrice = (amount: number) => {
     return new Intl.NumberFormat("en-ET", {
@@ -196,10 +214,10 @@ export default function CostsPage() {
   const handleSubmit = async (data: CreateCostDto | UpdateCostDto) => {
     try {
       if (editingCost) {
-        await costApi.update(editingCost.id, data);
+        await costApi.update(editingCost.id, data as UpdateCostDto);
         toast.success("Cost updated successfully");
       } else {
-        await costApi.create(data);
+        await costApi.create(data as CreateCostDto);
         toast.success("Cost created successfully");
       }
       
@@ -298,7 +316,7 @@ export default function CostsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All categories</SelectItem>
-                  {categories.map((category) => (
+                  {allCategories.map((category) => (
                     <SelectItem key={category} value={category}>
                       {category}
                     </SelectItem>

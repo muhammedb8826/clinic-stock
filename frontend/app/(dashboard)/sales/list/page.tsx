@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 
-import { salesApi, Sale, medicineApi, Medicine } from "@/lib/api";
+import { salesApi, Sale, medicineApi, Medicine, UpdateSaleDto } from "@/lib/api";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +31,8 @@ import {
   Download,
   ChevronLeft,
   ChevronRight,
+  Edit,
+  Trash2,
 } from "lucide-react";
 
 /* NEW: shadcn select for Range & Payment */
@@ -122,6 +124,252 @@ function getRangeDates(range: RangeKey, customStart?: string, customEnd?: string
   }
 }
 
+/* ------------------------- Components ------------------------- */
+
+interface EditSaleFormProps {
+  sale: Sale;
+  medicines: Medicine[];
+  onSave: (data: UpdateSaleDto) => void;
+  onCancel: () => void;
+}
+
+function EditSaleForm({ sale, medicines, onSave, onCancel }: EditSaleFormProps) {
+  const [formData, setFormData] = useState({
+    customerName: sale.customerName || '',
+    customerPhone: sale.customerPhone || '',
+    discount: sale.discount || 0,
+    tax: sale.tax || 0,
+    paymentMethod: sale.paymentMethod || 'cash',
+    saleDate: sale.saleDate.split('T')[0], // Convert to YYYY-MM-DD format
+  });
+
+  const [items, setItems] = useState(
+    sale.items.map(item => ({
+      medicineId: item.medicineId,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+    }))
+  );
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Only include fields that have values
+    const updateData: UpdateSaleDto = {};
+    
+    if (formData.customerName && formData.customerName.trim()) {
+      updateData.customerName = formData.customerName.trim();
+    }
+    
+    if (formData.customerPhone && formData.customerPhone.trim()) {
+      updateData.customerPhone = formData.customerPhone.trim();
+    }
+    
+    if (formData.discount !== undefined && formData.discount !== 0) {
+      updateData.discount = formData.discount;
+    }
+    
+    if (formData.tax !== undefined && formData.tax !== 0) {
+      updateData.tax = formData.tax;
+    }
+    
+    if (formData.paymentMethod) {
+      updateData.paymentMethod = formData.paymentMethod;
+    }
+    
+    if (formData.saleDate) {
+      updateData.saleDate = formData.saleDate;
+    }
+    
+    // Only include items that have valid medicineId
+    const validItems = items.filter(item => item.medicineId && item.quantity && item.unitPrice);
+    if (validItems.length > 0) {
+      updateData.items = validItems.map(item => ({
+        medicineId: item.medicineId!,
+        quantity: item.quantity!,
+        unitPrice: item.unitPrice!,
+      }));
+    }
+    
+    onSave(updateData);
+  };
+
+  const addItem = () => {
+    setItems([...items, { medicineId: 0, quantity: 1, unitPrice: 0 }]);
+  };
+
+  const removeItem = (index: number) => {
+    setItems(items.filter((_, i) => i !== index));
+  };
+
+  const updateItem = (index: number, field: string, value: any) => {
+    const updatedItems = [...items];
+    updatedItems[index] = { ...updatedItems[index], [field]: value };
+    
+    // Auto-fill unit price when medicine is selected
+    if (field === 'medicineId') {
+      const medicine = medicines.find(m => m.id === value);
+      if (medicine) {
+        updatedItems[index].unitPrice = Number(medicine.sellingPrice);
+      }
+    }
+    
+    setItems(updatedItems);
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Basic Info */}
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="text-sm font-medium text-gray-700">Customer Name</label>
+          <Input
+            value={formData.customerName}
+            onChange={(e) => setFormData({ ...formData, customerName: e.target.value })}
+            placeholder="Customer name"
+          />
+        </div>
+        <div>
+          <label className="text-sm font-medium text-gray-700">Customer Phone</label>
+          <Input
+            value={formData.customerPhone}
+            onChange={(e) => setFormData({ ...formData, customerPhone: e.target.value })}
+            placeholder="Phone number"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-4">
+        <div>
+          <label className="text-sm font-medium text-gray-700">Sale Date</label>
+          <Input
+            type="date"
+            value={formData.saleDate}
+            onChange={(e) => setFormData({ ...formData, saleDate: e.target.value })}
+          />
+        </div>
+        <div>
+          <label className="text-sm font-medium text-gray-700">Discount</label>
+          <Input
+            type="number"
+            value={formData.discount}
+            onChange={(e) => setFormData({ ...formData, discount: Number(e.target.value) })}
+            min="0"
+            step="0.01"
+          />
+        </div>
+        <div>
+          <label className="text-sm font-medium text-gray-700">Tax</label>
+          <Input
+            type="number"
+            value={formData.tax}
+            onChange={(e) => setFormData({ ...formData, tax: Number(e.target.value) })}
+            min="0"
+            step="0.01"
+          />
+        </div>
+      </div>
+
+      <div>
+        <label className="text-sm font-medium text-gray-700">Payment Method</label>
+        <Select
+          value={formData.paymentMethod}
+          onValueChange={(value) => setFormData({ ...formData, paymentMethod: value })}
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="cash">Cash</SelectItem>
+            <SelectItem value="transfer_cbe">Transfer to CBE</SelectItem>
+            <SelectItem value="transfer_coop">Transfer to COOP</SelectItem>
+            <SelectItem value="transfer_awash">Transfer to Awash</SelectItem>
+            <SelectItem value="transfer_abyssinia">Transfer to Abyssinia</SelectItem>
+            <SelectItem value="transfer_telebirr">Transfer to Telebirr</SelectItem>
+            <SelectItem value="transfer_ebirr">Transfer to E-birr</SelectItem>
+            <SelectItem value="mobile">Mobile Banking</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Items */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <label className="text-sm font-medium text-gray-700">Items</label>
+          <Button type="button" variant="outline" size="sm" onClick={addItem}>
+            Add Item
+          </Button>
+        </div>
+        
+        <div className="space-y-2">
+          {items.map((item, index) => (
+            <div key={index} className="grid grid-cols-4 gap-2 items-end">
+              <div>
+                <label className="text-xs text-gray-500">Medicine</label>
+                <Select
+                  value={item.medicineId.toString()}
+                  onValueChange={(value) => updateItem(index, 'medicineId', Number(value))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select medicine" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {medicines.map((medicine) => (
+                      <SelectItem key={medicine.id} value={medicine.id.toString()}>
+                        {medicine.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-xs text-gray-500">Quantity</label>
+                <Input
+                  type="number"
+                  value={item.quantity}
+                  onChange={(e) => updateItem(index, 'quantity', Number(e.target.value))}
+                  min="1"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500">Unit Price</label>
+                <Input
+                  type="number"
+                  value={item.unitPrice}
+                  onChange={(e) => updateItem(index, 'unitPrice', Number(e.target.value))}
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+              <div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => removeItem(index)}
+                  className="text-red-600 hover:text-red-700"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="flex justify-end gap-2 pt-4">
+        <Button type="button" variant="outline" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button type="submit" className="bg-gradient-to-r from-emerald-500 to-blue-600 hover:from-emerald-600 hover:to-blue-700">
+          Save Changes
+        </Button>
+      </div>
+    </form>
+  );
+}
+
 /* ------------------------- Page ------------------------- */
 
 export default function SalesListPage() {
@@ -138,6 +386,12 @@ export default function SalesListPage() {
   const [customStart, setCustomStart] = useState<string>("");
   const [customEnd, setCustomEnd] = useState<string>("");
   const [paymentFilter, setPaymentFilter] = useState<"all" | "cash" | "transfer_cbe" | "transfer_coop" | "transfer_awash" | "transfer_abyssinia" | "transfer_telebirr" | "transfer_ebirr" | "mobile">("all");
+
+  /* Edit and Delete state */
+  const [editingSale, setEditingSale] = useState<Sale | null>(null);
+  const [deleteSaleId, setDeleteSaleId] = useState<number | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -156,6 +410,53 @@ export default function SalesListPage() {
       }
     })();
   }, []);
+
+  /* Edit and Delete handlers */
+  const handleEdit = (sale: Sale) => {
+    setEditingSale(sale);
+    setIsEditDialogOpen(true);
+  };
+
+  const handleDelete = (saleId: number) => {
+    setDeleteSaleId(saleId);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteSaleId) return;
+    
+    try {
+      await salesApi.delete(deleteSaleId);
+      toast.success("Sale deleted successfully");
+      // Reload sales data
+      const updatedSales = await salesApi.list();
+      setSales(updatedSales || []);
+    } catch (error) {
+      console.error("Failed to delete sale:", error);
+      toast.error("Failed to delete sale");
+    } finally {
+      setIsDeleteDialogOpen(false);
+      setDeleteSaleId(null);
+    }
+  };
+
+  const handleUpdateSale = async (updatedData: UpdateSaleDto) => {
+    if (!editingSale) return;
+    
+    try {
+      await salesApi.update(editingSale.id, updatedData);
+      toast.success("Sale updated successfully");
+      // Reload sales data
+      const updatedSales = await salesApi.list();
+      setSales(updatedSales || []);
+    } catch (error) {
+      console.error("Failed to update sale:", error);
+      toast.error("Failed to update sale");
+    } finally {
+      setIsEditDialogOpen(false);
+      setEditingSale(null);
+    }
+  };
 
   /* utility */
   const paymentText = (sale: Sale) =>
@@ -483,20 +784,25 @@ export default function SalesListPage() {
                     {formatDate(sale.saleDate)}
                   </TableCell>
                   <TableCell className="text-emerald-700 font-medium">
-                    {formatETB(sale.calculatedProfit || 0)}
+                    {(() => {
+                      const profit = sale.calculatedProfit || 0;
+                      const color = profit < 0 ? "text-red-600" : "text-emerald-700";
+                      return <span className={color}>{formatETB(profit)}</span>;
+                    })()}
                   </TableCell>
                   <TableCell className="text-right">
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-8 w-8 p-0"
-                          title="View Details"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      </DialogTrigger>
+                    <div className="flex items-center justify-end gap-2">
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            title="View Details"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </DialogTrigger>
                       <DialogContent className="max-w-3xl">
                         <DialogHeader>
                           <DialogTitle>Sale Details — {sale.saleNumber}</DialogTitle>
@@ -569,14 +875,35 @@ export default function SalesListPage() {
                             Total:&nbsp;{formatETB(Number(sale.totalAmount))}
                           </div>
                           {typeof sale.calculatedProfit === "number" && (
-                            <div className="text-emerald-700 font-semibold">
+                            <div className={`font-semibold ${sale.calculatedProfit < 0 ? "text-red-700" : "text-emerald-700"}`}>
                               Profit:&nbsp;{formatETB(sale.calculatedProfit)}
                             </div>
                           )}
                         </div>
                       </DialogContent>
                     </Dialog>
-                  </TableCell>
+                    
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      title="Edit Sale"
+                      onClick={() => handleEdit(sale)}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                      title="Delete Sale"
+                      onClick={() => handleDelete(sale.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </TableCell>
                 </TableRow>
               ))
             )}
@@ -644,6 +971,52 @@ export default function SalesListPage() {
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Sale</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-gray-600">
+              Are you sure you want to delete this sale? This action cannot be undone and will restore the stock quantities.
+            </p>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsDeleteDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDelete}
+            >
+              Delete
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Sale Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Sale — {editingSale?.saleNumber}</DialogTitle>
+          </DialogHeader>
+          
+          {editingSale && (
+            <EditSaleForm
+              sale={editingSale}
+              medicines={medicines}
+              onSave={handleUpdateSale}
+              onCancel={() => setIsEditDialogOpen(false)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

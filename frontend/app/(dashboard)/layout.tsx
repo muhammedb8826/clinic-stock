@@ -2,6 +2,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppBreadcrumb } from "@/components/app-breadcrumb";
 import  ProtectedRoute  from "@/components/protected-route";
+import { MobileHeaderControls } from "@/components/mobile-header-controls";
 import {
   IconInnerShadowTop,
 } from "@tabler/icons-react";
@@ -17,7 +18,7 @@ export default function DashboardLayout({
       <SidebarProvider>
         <div className="flex min-h-screen w-full flex-col">
           {/* Mobile Header */}
-          <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 lg:hidden">
+          <header className="flex h-16 shrink-0 items-center justify-between gap-2 border-b px-4 lg:hidden">
             <SidebarTrigger className="-ml-1" />
             <div className="flex-1">
                 <a href="/dashboard" aria-label="Damina Tech">
@@ -33,6 +34,7 @@ export default function DashboardLayout({
                   </div>
                 </a>
             </div>
+            <MobileHeaderControls />
           </header>
           
           <div className="flex flex-1 overflow-hidden">

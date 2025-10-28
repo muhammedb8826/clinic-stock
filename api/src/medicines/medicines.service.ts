@@ -22,15 +22,9 @@ export class MedicinesService {
   ) {}
 
   async create(createMedicineDto: CreateMedicineDto): Promise<Medicine> {
-    // Check if medicine with same name already exists
-    const existingMedicine = await this.medicineRepository.findOne({
-      where: { name: createMedicineDto.name },
-    });
-
-    if (existingMedicine) {
-      throw new ConflictException('Medicine with this name already exists');
-    }
-
+    // Allow medicines with the same name (for variants)
+    // Removed unique name check to support variants
+    
     const medicine = this.medicineRepository.create({
       ...createMedicineDto,
     });

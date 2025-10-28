@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Post, Patch, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseIntPipe, Post, Patch, Query, Delete } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { PurchaseOrdersService } from './purchase-orders.service';
 import { CreatePurchaseOrderDto } from './dto/create-purchase-order.dto';
@@ -56,6 +56,15 @@ export class PurchaseOrdersController {
   @ApiOperation({ summary: 'Update purchase order payment status' })
   updatePaymentStatus(@Param('id', ParseIntPipe) id: number, @Body() dto: { paymentStatus: PaymentStatus }) {
     return this.service.updatePaymentStatus(id, dto.paymentStatus);
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Delete purchase order' })
+  @ApiResponse({ status: 200, description: 'Purchase order deleted successfully' })
+  @ApiResponse({ status: 400, description: 'Cannot delete received purchase order' })
+  @ApiResponse({ status: 404, description: 'Purchase order not found' })
+  delete(@Param('id', ParseIntPipe) id: number) {
+    return this.service.delete(id);
   }
 }
 

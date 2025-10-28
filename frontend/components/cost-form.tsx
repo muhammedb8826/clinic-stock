@@ -39,16 +39,13 @@ interface CostFormProps {
 const COMMON_CATEGORIES = [
   "Rent",
   "Utilities",
-  "Payroll",
-  "Office Supplies",
-  "Marketing",
-  "Equipment",
+  "Salary",
   "Maintenance",
   "Insurance",
-  "Professional Services",
+  "Office Supplies",
+  "Marketing",
   "Transportation",
-  "Training",
-  "Software",
+  "Equipment",
   "Other",
 ] as const;
 
@@ -79,7 +76,9 @@ export function CostForm({ initialData, onSubmit, onCancel }: CostFormProps) {
     (async () => {
       try {
         const categoriesData = await costApi.getCategories();
-        setCategories(categoriesData);
+        // Merge API categories with common static categories
+        const uniqueCategories = new Set([...COMMON_CATEGORIES, ...categoriesData]);
+        setCategories(Array.from(uniqueCategories));
       } catch (error) {
         console.error("Error loading categories:", error);
         // Use default categories if API fails

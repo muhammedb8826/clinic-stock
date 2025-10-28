@@ -10,7 +10,7 @@ export class Medicine {
   id: number;
 
   @ApiProperty({ description: 'Name of the medicine', example: 'Paracetamol 500mg' })
-  @Column({ unique: true })
+  @Column()
   name: string;
 
 

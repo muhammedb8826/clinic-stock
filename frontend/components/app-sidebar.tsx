@@ -29,6 +29,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { useAuth } from "@/contexts/auth-context";
 
@@ -102,6 +103,7 @@ function cls(...arr: Array<string | false | null | undefined>) {
 export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
   const { user } = useAuth();
   const pathname = usePathname();
+  const { setOpenMobile } = useSidebar();
 
   // keep only one parent open at a time
   const [openParent, setOpenParent] = React.useState<string | null>(null);
@@ -123,8 +125,9 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
       }
       if (found) break;
     }
-    // if no active match, keep current openParent as-is (don’t forcibly close others)
+    // if no active match, keep current openParent as-is (don't forcibly close others)
   }, [pathname]);
+
 
   const userData = {
     name: user?.name || "User",
@@ -212,6 +215,12 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
                               ? "text-emerald-700 font-semibold bg-gradient-to-r from-emerald-50 to-blue-50 ring-1 ring-emerald-200"
                               : "text-gray-800 font-semibold"
                           )}
+                          onClick={() => {
+                            // Close mobile sidebar on navigation
+                            if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+                              setOpenMobile(false);
+                            }
+                          }}
                         >
                           {ParentIcon && <ParentIcon className="size-4" />}
                           <span className="truncate">{item.title}</span>
@@ -234,7 +243,13 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
                                       ? "bg-emerald-600/10 text-emerald-700 ring-1 ring-emerald-200"
                                       : "text-gray-600 hover:bg-gray-50 hover:text-gray-800"
                                   )}
-                                  onClick={() => setOpenParent(item.title)} // keep parent open after navigation
+                                  onClick={() => {
+                                    setOpenParent(item.title); // keep parent open after navigation
+                                    // Close mobile sidebar on navigation
+                                    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+                                      setOpenMobile(false);
+                                    }
+                                  }}
                                 >
                                   {SubIcon && (
                                     <SubIcon className={cls("size-3.5", active ? "text-emerald-700" : "text-gray-400")} />

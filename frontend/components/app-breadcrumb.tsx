@@ -247,8 +247,8 @@ export function AppBreadcrumb() {
         </BreadcrumbList>
       </Breadcrumb>
 
-      {/* Right controls: Theme, Bell, Profile */}
-      <div className="flex items-center gap-2 sm:gap-3">
+      {/* Right controls: Theme, Bell, Profile - Hidden on mobile */}
+      <div className="hidden lg:flex items-center gap-2 sm:gap-3">
         {/* 1) Theme toggle (icon only) */}
         <ThemeToggle />
 
@@ -316,14 +316,11 @@ export function AppBreadcrumb() {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="icon" className="relative h-9 w-9 rounded-full">
-              {(user as any)?.avatar ? (
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src={(user as any).avatar} alt={user?.name} />
-                  <AvatarFallback>{user?.name?.slice(0, 2)?.toUpperCase() || "US"}</AvatarFallback>
-                </Avatar>
-              ) : (
-                <User className="h-5 w-5 text-gray-900" />
-              )}
+              <Avatar className="h-8 w-8">
+                <AvatarFallback className="bg-gradient-to-br from-emerald-400 to-blue-600 text-white text-sm font-medium">
+                  {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+                </AvatarFallback>
+              </Avatar>
             </Button>
           </DropdownMenuTrigger>
 
@@ -343,6 +340,7 @@ export function AppBreadcrumb() {
             >
               <ExternalLink className="h-4 w-4 mr-2 rotate-180" />
               Logout
+              
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
