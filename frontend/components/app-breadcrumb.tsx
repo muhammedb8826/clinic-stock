@@ -126,9 +126,9 @@ export function AppBreadcrumb() {
   const router = useRouter();
 
   // Use real-time notification stats
-  const { stats: realTimeStats, isLoading: statsLoading } = useNotificationStats();
+  const { stats: realTimeStats } = useNotificationStats();
 
-  // State for medicines data
+  // Local UI & data state
   const [meds, setMeds] = useState<Medicine[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshedAt, setRefreshedAt] = useState<Date | null>(null);
@@ -247,8 +247,8 @@ export function AppBreadcrumb() {
         </BreadcrumbList>
       </Breadcrumb>
 
-      {/* Right controls: Theme, Bell, Profile */}
-      <div className="flex items-center gap-2 sm:gap-3">
+      {/* Right controls: Theme, Bell, Profile - Hidden on mobile */}
+      <div className="hidden lg:flex items-center gap-2 sm:gap-3">
         {/* 1) Theme toggle (icon only) */}
         <ThemeToggle />
 
@@ -340,6 +340,7 @@ export function AppBreadcrumb() {
             >
               <ExternalLink className="h-4 w-4 mr-2 rotate-180" />
               Logout
+              
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
