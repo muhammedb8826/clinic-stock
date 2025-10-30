@@ -1,0 +1,50 @@
+name: Deploy Pharmacy API to cPanel via FTP
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'api/**'
+
+jobs:
+  api-deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./api
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
+
+    - name: Install deps and build
+      run: |
+        npm ci
+        npm run build
+
+    - name: Install production deps only
+      run: npm ci --omit=dev
+
+    - name: Prepare deploy bundle
+      run: |
+        rm -rf deploy
+        mkdir -p deploy
+        cp package.json package-lock.json deploy/
+        cp -r dist deploy/dist
+        cp -r node_modules deploy/node_modules
+
+    - name: Deploy runtime bundle to cPanel via FTP
+      uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+      with:
+        server: ${{ secrets.FTP_SERVER_API }}
+        username: ${{ secrets.FTP_USERNAME_API }}
+        password: ${{ secrets.FTP_PASSWORD_API }}
+        local-dir: ./api/deploy/
+        dangerous-clean-slate: true
+        protocol: ftp
