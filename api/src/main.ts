@@ -18,7 +18,7 @@ async function bootstrap() {
   // Enable CORS for frontend
   app.enableCors({
     origin: ['https://wanofi.daminaa.org'], // exact frontend origin
-    credentials: true,
+    credentials: false,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
     optionsSuccessStatus: 204,
