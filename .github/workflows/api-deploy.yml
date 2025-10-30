@@ -47,6 +47,7 @@ jobs:
         server: ${{ secrets.FTP_SERVER_API }}
         username: ${{ secrets.FTP_USERNAME_API }}
         password: ${{ secrets.FTP_PASSWORD_API }}
+        server-dir: ${{ secrets.CPANEL_DIR_API }}
         local-dir: ./api/deploy/
         dangerous-clean-slate: true
         protocol: ftp
