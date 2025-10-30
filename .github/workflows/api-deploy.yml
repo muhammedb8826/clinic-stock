@@ -3,7 +3,7 @@ name: Deploy Pharmacy API to cPanel via FTP
 on:
   push:
     branches:
-      - main
+      - master
     paths:
       - 'api/**'
 
