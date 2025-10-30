@@ -5,10 +5,10 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://wanofi-api.dami
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  headers: { 'Content-Type': 'application/json' },
+  withCredentials: true, // allow sending cookies or JWTs if needed
 });
+
 
 // Medicine types
 export interface Medicine {

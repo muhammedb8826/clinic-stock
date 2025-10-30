@@ -17,12 +17,19 @@ async function bootstrap() {
 
   // Enable CORS for frontend
   app.enableCors({
-    origin: ['https://wanofi.daminaa.org'], // exact frontend origin
-    credentials: false,
+    origin: (origin, callback) => {
+      const allowedOrigins = ['https://wanofi.daminaa.org'];
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
+    credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
-    optionsSuccessStatus: 204,
   });
+  
 
   // Swagger configuration
   const config = new DocumentBuilder()
