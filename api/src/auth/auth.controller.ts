@@ -1,32 +1,50 @@
-import { Controller, Post, Body, UseGuards, Request, Get } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { Public } from '../decorators/public.decorator';
+import { Controller, Post, Body, UseGuards, HttpCode, HttpStatus, } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { LoginDto } from './dto/login.dto';
-import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { LocalAuthGuard } from './guards/local-auth.guard';
+import { AuthDto } from './dto';
+import { Tokens } from './types';
+import { AtStrategy, RtStrategy } from './strategy';
+import { GetCurrentUser, GetCurrentUserId } from '../decorators';
 
-@ApiTags('auth')
-@Controller('auth')
+@Controller()
 export class AuthController {
-  constructor(private authService: AuthService) {}
+    constructor(private authService: AuthService) {}
+    
+    @Public()
+    @Post('signup')
+    @HttpCode(HttpStatus.CREATED)
+    async signupLocal(@Body() dto: AuthDto): Promise<{ tokens: Tokens, user: any }>{
+        return this.authService.signupLocal(dto);
+    }
 
-  @UseGuards(LocalAuthGuard)
-  @Post('login')
-  @ApiOperation({ summary: 'User login' })
-  @ApiResponse({ status: 200, description: 'Login successful' })
-  @ApiResponse({ status: 401, description: 'Invalid credentials' })
-  async login(@Body() loginDto: LoginDto) {
-    return this.authService.login(loginDto);
-  }
+    @Public()
+    @Post('signin')
+    @HttpCode(HttpStatus.OK)
+    async signinLocal(@Body() dto: AuthDto): Promise<{ tokens: Tokens, user: any }>{
+        return this.authService.signinLocal(dto);
+    }
 
-  @UseGuards(JwtAuthGuard)
-  @Get('profile')
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get user profile' })
-  @ApiResponse({ status: 200, description: 'User profile' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
-  getProfile(@Request() req) {
-    const { password, ...userWithoutPassword } = req.user;
-    return userWithoutPassword;
-  }
+    // Backward-compatible alias: POST /auth/login
+    @Public()
+    @Post('auth/login')
+    @HttpCode(HttpStatus.OK)
+    async legacyLogin(@Body() dto: AuthDto): Promise<any> {
+        const { tokens, user } = await this.authService.signinLocal(dto);
+        return { access_token: tokens.accessToken, user };
+    }
+
+    @UseGuards(AtStrategy)
+    @Post('logout')
+    @HttpCode(HttpStatus.OK)
+    async logout(@GetCurrentUserId() userId: string){
+     return this.authService.logout(Number(userId));
+    }  
+
+    @Public()
+    @UseGuards(RtStrategy)
+    @Post('refresh')
+    @HttpCode(HttpStatus.OK)
+    async refreshTokens(@GetCurrentUserId() userId: string){
+        return this.authService.refreshTokens(Number(userId));
+    }
 }

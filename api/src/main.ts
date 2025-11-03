@@ -18,22 +18,38 @@ async function bootstrap() {
   // Enable CORS for frontend
   app.enableCors({
     origin: (origin, callback) => {
-      const allowedOrigins = ['https://wanofi.daminaa.org'];
-      if (!origin || allowedOrigins.includes(origin)) {
+      const allowedOrigins = ['https://wanofi.daminaa.org', 'http://localhost:3000'];
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+      if (allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
         callback(new Error('Not allowed by CORS'));
       }
     },
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'Accept',
+      'Origin',
+      'X-Requested-With',
+      'Access-Control-Request-Method',
+      'Access-Control-Request-Headers',
+    ],
+    exposedHeaders: ['Authorization'],
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
   });
   
 
   // Swagger configuration
   const config = new DocumentBuilder()
-    .setTitle('Clinic Stock Management API')
+    .setTitle('Wanofi Pharmacy API')
     .setDescription('A comprehensive pharmacy inventory management system API')
     .setVersion('1.0')
     .addTag('medicines', 'Medicine management endpoints')

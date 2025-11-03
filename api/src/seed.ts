@@ -13,37 +13,55 @@ async function bootstrap() {
   try {
     const userRepo = app.get<Repository<User>>(getRepositoryToken(User));
 
-    // Clear all existing users
-    console.log('Clearing existing users...');
-    await userRepo.clear();
-
-    // Create only the two admin users
-    const adminUsers: Array<Partial<User>> = [
+    // Define admin users with correct password
+    const adminUsersData = [
       { 
         name: 'Soreti Admin', 
         email: 'soreti@wanofi.com', 
-        role: 'admin', 
+        role: 'admin' as const, 
         isActive: true, 
-        password: await bcrypt.hash('wanofi123', 12) 
+        password: await bcrypt.hash('wanofi123', 10)
       },
       { 
         name: 'Ali Admin', 
         email: 'ali@wanofi.com', 
-        role: 'admin', 
+        role: 'admin' as const, 
         isActive: true, 
-        password: await bcrypt.hash('wanofi123', 12) 
+        password: await bcrypt.hash('wanofi123', 10)
       },
     ];
 
-    console.log('Creating admin users...');
-    for (const userData of adminUsers) {
-      const user = userRepo.create(userData as User);
-      await userRepo.save(user);
-      console.log(`Created user: ${userData.name} (${userData.email})`);
+    console.log('Seeding admin users...');
+    for (const userData of adminUsersData) {
+      // Check if user exists
+      let user = await userRepo.findOne({ where: { email: userData.email } });
+      
+      if (user) {
+        // Update existing user with correct password hash
+        console.log(`Updating existing user: ${userData.email}`);
+        user.name = userData.name;
+        user.role = userData.role;
+        user.isActive = userData.isActive;
+        user.password = userData.password;
+        await userRepo.save(user);
+        console.log(`Updated user: ${userData.name} (${userData.email})`);
+      } else {
+        // Create new user
+        console.log(`Creating new user: ${userData.email}`);
+        const newUser = userRepo.create({
+          name: userData.name,
+          email: userData.email,
+          role: userData.role,
+          isActive: userData.isActive,
+          password: userData.password
+        });
+        await userRepo.save(newUser);
+        console.log(`Created user: ${userData.name} (${userData.email})`);
+      }
     }
 
-    console.log('Database seeding completed successfully.');
-    console.log('Admin users created:');
+    console.log('\nDatabase seeding completed successfully.');
+    console.log('Admin users ready:');
     console.log('- soreti@wanofi.com (Password: wanofi123)');
     console.log('- ali@wanofi.com (Password: wanofi123)');
   } catch (err) {
