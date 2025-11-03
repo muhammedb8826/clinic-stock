@@ -25,21 +25,14 @@ jobs:
       with:
         node-version: 20.x
 
-    - name: Install deps and build
-      run: |
-        npm ci
-        npm run build
-
-    - name: Install production deps only
-      run: npm ci --omit=dev
-
     - name: Prepare deploy bundle
       run: |
         rm -rf deploy
         mkdir -p deploy
         cp package.json package-lock.json deploy/
-        cp -r dist deploy/dist
-        cp -r node_modules deploy/node_modules
+        cp tsconfig.json tsconfig.build.json nest-cli.json deploy/
+        mkdir -p deploy/src
+        cp -r src/* deploy/src/
 
     - name: Deploy runtime bundle to cPanel via FTP
       uses: SamKirkland/FTP-Deploy-Action@v4.3.5
@@ -49,5 +42,4 @@ jobs:
         password: ${{ secrets.FTP_PASSWORD_API }}
         server-dir: ${{ secrets.CPANEL_DIR_API }}
         local-dir: ./api/deploy/
-        dangerous-clean-slate: true
         protocol: ftp
